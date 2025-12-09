@@ -5,7 +5,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const EARTH_CIRCUMFERENCE = 40075000; 
 const STEP_LENGTH = 0.75; 
 const START_LAT = 0; 
-const START_LNG = 37.6; // Москва/Кения
+const START_LNG = 37.6; 
 
 const avatarList = [
   'https://cdn-icons-png.flaticon.com/512/4140/4140048.png', 
@@ -16,8 +16,10 @@ const avatarList = [
   'https://cdn-icons-png.flaticon.com/512/949/949635.png'
 ];
 
-// --- ИНИЦИАЛИЗАЦИЯ ---
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// --- ИНИЦИАЛИЗАЦИЯ (ИСПРАВЛЕНО) ---
+// Мы используем имя supabaseClient, чтобы не конфликтовать с библиотекой
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 let currentAvatarUrl = avatarList[0];
 let currentUser = null;
 
@@ -56,13 +58,15 @@ window.addEventListener('mousedown', () => { world.controls().autoRotate = false
 // --- ЛОГИКА ---
 
 async function checkSession() {
-  const { data: { session } } = await supabase.auth.getSession();
+  // Используем supabaseClient вместо supabase
+  const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) handleLoginSuccess(session.user);
 }
 checkSession();
 
 async function signIn() {
-  const { error } = await supabase.auth.signInWithOAuth({
+  // Используем supabaseClient
+  const { error } = await supabaseClient.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.href }
   });
@@ -70,7 +74,7 @@ async function signIn() {
 }
 
 async function signOut() {
-  await supabase.auth.signOut();
+  await supabaseClient.auth.signOut();
   window.location.reload();
 }
 
@@ -80,14 +84,14 @@ async function handleLoginSuccess(user) {
   document.getElementById('ui-layer').style.display = 'block';
   document.getElementById('my-name').innerText = user.user_metadata.full_name || user.email;
 
-  let { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+  let { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
   
   if (!profile) {
-     await supabase.from('profiles').insert([{ 
+     await supabaseClient.from('profiles').insert([{ 
          id: user.id, email: user.email, nickname: user.user_metadata.full_name,
          avatar_url: avatarList[0], is_approved: false 
      }]);
-     const res = await supabase.from('profiles').select('*').eq('id', user.id).single();
+     const res = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
      profile = res.data;
   }
 
@@ -132,13 +136,13 @@ async function saveData(silent = false) {
      id: currentUser.id, email: currentUser.email, nickname: currentUser.user_metadata.full_name,
      avatar_url: currentAvatarUrl, total_steps: steps, updated_at: new Date()
    };
-   const { error } = await supabase.from('profiles').upsert(updates);
+   const { error } = await supabaseClient.from('profiles').upsert(updates);
    if (error && !silent) alert('Ошибка! ' + error.message);
    if (!silent) fetchAndDrawEveryone();
 }
 
 async function fetchAndDrawEveryone() {
-  const { data: profiles, error } = await supabase.from('profiles').select('*');
+  const { data: profiles, error } = await supabaseClient.from('profiles').select('*');
   if (error) return console.error(error);
 
   const markersData = profiles.map(p => {
