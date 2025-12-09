@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Global Steps Challenge</title>
+  
+  <link rel="stylesheet" href="style.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/three"></script>
+  <script src="https://unpkg.com/globe.gl"></script>
+</head>
+<body>
+
+  <div id="login-screen">
+    <h1 style="color: white; font-size: 2.5rem; margin-bottom: 30px;">🌍 EARTH RUN</h1>
+    <button class="login-btn" onclick="signIn()">
+      <img src="https://cdn-icons-png.flaticon.com/512/2991/2991148.png" width="24">
+      Войти через Google
+    </button>
+  </div>
+
+  <div id="ui-layer">
+    <div class="user-card">
+      <div id="my-avatar-preview" class="user-avatar"></div>
+      <div>
+        <div id="my-name" style="font-weight: bold;">Гость</div>
+        <div style="font-size: 0.8rem; color: #94a3b8; cursor: pointer;" onclick="signOut()">Выйти</div>
+      </div>
+    </div>
+
+    <label>Выберите аватар:</label>
+    <div id="avatar-selection"></div>
+
+    <label>Общий пробег (шаги):</label>
+    <input type="number" id="stepInput" placeholder="0">
+    <button class="action-btn" onclick="saveData()">💾 Сохранить</button>
+    
+    <div style="margin-top: 10px; font-size: 0.9rem; color: #ccc;">
+      <div>Ваш путь: <span id="kmDisplay" style="color: #38bdf8; font-weight: bold;">0</span> км</div>
+    </div>
+  </div>
+
+  <div id="globeViz"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
