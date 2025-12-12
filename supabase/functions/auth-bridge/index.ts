@@ -1,9 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { create, getNumericDate } from "https://deno.land/x/djwt@v2.8/mod.ts";
 import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', 
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -31,54 +31,26 @@ serve(async (req) => {
 
 async function handleTelegram(data: any) {
   const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN');
-  // Try custom secret first, fallback to system secret (if available)
-  const JWT_SECRET = Deno.env.get('JWT_SECRET') || Deno.env.get('SUPABASE_JWT_SECRET');
+  const SERVICE_ROLE_KEY = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 
-  if (!BOT_TOKEN || !JWT_SECRET) {
-    throw new Error('Server configuration error: Missing secrets');
+  if (!BOT_TOKEN || !SERVICE_ROLE_KEY || !SUPABASE_URL) {
+    throw new Error('Server configuration error: Missing secrets (BOT_TOKEN, SERVICE_ROLE_KEY, or SUPABASE_URL)');
   }
 
   // 1. Validate Telegram Hash
   const { hash, ...userData } = data;
   
-  // Debug logging
-  console.log("Received Data:", JSON.stringify(userData));
-  console.log("Received Hash:", hash);
-
   const dataCheckArr = Object.keys(userData)
     .sort()
     .map((key) => `${key}=${userData[key]}`)
     .join('\n');
 
-  console.log("Check String:", JSON.stringify(dataCheckArr));
-
   const encoder = new TextEncoder();
-  
-  // 1. The secret key is the SHA-256 hash of the bot token
-  const secretKeyBuffer = await crypto.subtle.digest(
-    "SHA-256", 
-    encoder.encode(BOT_TOKEN)
-  );
-
-  // 2. Use this digest as the HMAC key
-  const secretKey = await crypto.subtle.importKey(
-    "raw",
-    secretKeyBuffer,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  // 3. Sign the data string
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    secretKey,
-    encoder.encode(dataCheckArr)
-  );
-
-  const hexHash = Array.from(new Uint8Array(signature))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  const secretKeyBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(BOT_TOKEN));
+  const secretKey = await crypto.subtle.importKey("raw", secretKeyBuffer, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = await crypto.subtle.sign("HMAC", secretKey, encoder.encode(dataCheckArr));
+  const hexHash = Array.from(new Uint8Array(signature)).map((b) => b.toString(16).padStart(2, '0')).join('');
 
   if (hexHash !== hash) {
     throw new Error('Data is NOT from Telegram (Hash mismatch)');
@@ -89,27 +61,45 @@ async function handleTelegram(data: any) {
     throw new Error('Data is outdated');
   }
 
-  // 3. Generate Supabase JWT
-  // We mint a token that Supabase Auth will accept as a valid user
-  // This usually requires creating a user in auth.users first via Admin API
-  // OR simply returning a signed token if you use "Third-party auth" logic.
+  // 3. Find or Create User in Supabase Auth
+  const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  const email = `${userData.id}@telegram.bot`; // Virtual email
+  const password = hexHash; // Use the hash as a deterministic password (secure enough as it changes per session, but we mostly use admin access)
+
+  // Try to get user by email (filtering is limited in admin api without fetching list, so let's try create and handle error or list)
+  // Easiest is listUsers with filter.
   
-  // For simplicity in this bridge, we often need to interact with Supabase Admin API to get a UID for this telegram ID.
-  // But to keep this function self-contained for now, let's assume we return the validated data + a custom token.
+  const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+  if (listError) throw listError;
   
-  // Better approach: Use the verified telegram ID to Find-Or-Create a user in Supabase via Admin Client
-  // Then issue a token for that User ID.
-  
-  // Simplified response for now (Client needs to handle the rest or we extend this):
+  let user = users.find(u => u.email === email);
+
+  if (!user) {
+      // Create new user
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email: email,
+          password: password, // Required
+          email_confirm: true,
+          user_metadata: {
+              full_name: `${userData.first_name} ${userData.last_name || ''}`.trim(),
+              avatar_url: userData.photo_url,
+              provider: 'telegram'
+          }
+      });
+      if (createError) throw createError;
+      user = newUser.user;
+  }
+
+  // 4. Return User Data
   return new Response(
-    JSON.stringify({
-        message: 'Verified',
+    JSON.stringify({ 
+        message: 'Verified', 
         user: {
-            id: `tg_${userData.id}`,
-            email: `tg_${userData.id}@telegram.placeholder.com`, // Fake email
-            full_name: `${userData.first_name} ${userData.last_name || ''}`.trim(),
-            avatar_url: userData.photo_url
-        }
+            id: user.id, // Real UUID from Auth
+            email: user.email,
+            full_name: user.user_metadata.full_name,
+            avatar_url: user.user_metadata.avatar_url
+        } 
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
