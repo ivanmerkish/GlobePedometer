@@ -48,39 +48,55 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentAvatarUrl = defaultAvatar;
 let currentUser = null;
+let world;
+let is3DSupported = false;
 
-const world = Globe()
-  .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-  .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
-  .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
-  .showAtmosphere(true)
-  .atmosphereColor('lightskyblue')
-  (document.getElementById('globeViz'));
+try {
+  world = Globe()
+    .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+    .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+    .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
+    .showAtmosphere(true)
+    .atmosphereColor('lightskyblue')
+    (document.getElementById('globeViz'));
 
-world.ringsData([{lat: START_LAT, lng: START_LNG}])
-     .ringColor(() => 'white').ringMaxRadius(2).ringPropagationSpeed(2).ringRepeatPeriod(1000);
+  world.ringsData([{lat: START_LAT, lng: START_LNG}])
+       .ringColor(() => 'white').ringMaxRadius(2).ringPropagationSpeed(2).ringRepeatPeriod(1000);
 
-world.htmlElementsData([])
-  .htmlLat(d => d.lat)
-  .htmlLng(d => d.lng)
-  .htmlAltitude(0)
-  .htmlElement(d => {
-    const el = document.createElement('div');
-    el.className = 'globe-marker';
-    el.style.backgroundImage = `url('${d.avatar_url}')`;
-    if (currentUser && d.id === currentUser.id) {
-       el.style.borderColor = '#fbbf24'; el.style.boxShadow = '0 0 10px #fbbf24'; el.style.zIndex = 1000;
-    }
-    const tooltip = document.createElement('div');
-    tooltip.className = 'marker-tooltip';
-    tooltip.innerText = `${d.nickname || 'Anon'} (${d.km} км)`;
-    el.appendChild(tooltip);
-    return el;
-  });
+  world.htmlElementsData([])
+    .htmlLat(d => d.lat)
+    .htmlLng(d => d.lng)
+    .htmlAltitude(0)
+    .htmlElement(d => {
+      const el = document.createElement('div');
+      el.className = 'globe-marker';
+      el.style.backgroundImage = `url('${d.avatar_url}')`;
+      if (currentUser && d.id === currentUser.id) {
+         el.style.borderColor = '#fbbf24'; el.style.boxShadow = '0 0 10px #fbbf24'; el.style.zIndex = 1000;
+      }
+      const tooltip = document.createElement('div');
+      tooltip.className = 'marker-tooltip';
+      tooltip.innerText = `${d.nickname || 'Anon'} (${d.km} км)`;
+      el.appendChild(tooltip);
+      return el;
+    });
 
-world.controls().autoRotate = true;
-world.controls().autoRotateSpeed = 0.5;
-window.addEventListener('mousedown', () => { world.controls().autoRotate = false; });
+  world.controls().autoRotate = true;
+  world.controls().autoRotateSpeed = 0.5;
+  window.addEventListener('mousedown', () => { world.controls().autoRotate = false; });
+  
+  is3DSupported = true;
+
+} catch (err) {
+  console.error("WebGL/3D Error:", err);
+  const errDiv = document.createElement('div');
+  errDiv.style.position = 'absolute'; 
+  errDiv.style.bottom = '10px'; 
+  errDiv.style.left = '10px'; 
+  errDiv.style.color = 'red';
+  errDiv.innerText = "3D режим недоступен (WebGL ошибка). Основной функционал работает.";
+  document.body.appendChild(errDiv);
+}
 
 // --- ЛОГИКА ---
 
@@ -265,7 +281,7 @@ async function fetchAndDrawEveryone() {
      const degreesTraveled = (distanceMeters / EARTH_CIRCUMFERENCE) * 360;
      const currentLng = START_LNG + degreesTraveled;
      
-     if (currentUser && p.id === currentUser.id) {
+     if (currentUser && p.id === currentUser.id && is3DSupported) {
         document.getElementById('kmDisplay').innerText = (distanceMeters/1000).toFixed(1);
         world.pointOfView({ lat: START_LAT, lng: currentLng, altitude: 1.8 }, 2000);
      }
@@ -275,5 +291,8 @@ async function fetchAndDrawEveryone() {
         nickname: p.nickname, km: (distanceMeters/1000).toFixed(0)
      };
   });
-  world.htmlElementsData(markersData);
+  
+  if (is3DSupported) {
+      world.htmlElementsData(markersData);
+  }
 }
