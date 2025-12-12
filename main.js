@@ -98,23 +98,35 @@ async function handleLoginSuccess(user) {
             }
         }
 
+let lastDataString = "";
+
+// ...
+
         // Refresh data immediately to highlight user
         fetchAndDrawEveryone(true);
         if (dataLoopInterval) clearInterval(dataLoopInterval);
-        dataLoopInterval = setInterval(() => fetchAndDrawEveryone(false), 10000);
+        dataLoopInterval = setInterval(() => fetchAndDrawEveryone(false), 30000);
 
     } catch (err) {
-        console.error("Login Handling Error:", err);
-        alert("Ошибка входа: " + err.message);
-        document.getElementById('login-screen').style.display = 'flex';
-    }
+// ...
 }
 
 async function fetchAndDrawEveryone(centerView = false) {
     const { data: profiles, error } = await db.getAllProfiles();
     if (error) return console.error(error);
 
+    // Simple deduplication: Check if data actually changed
+    // We strictly check steps and avatars to avoid re-renders
+    const currentDataString = JSON.stringify(profiles.map(p => ({ s: p.total_steps, a: p.avatar_url, n: p.nickname })));
+    
+    // If data is same AND we are not forcing a center view (initial load), skip update
+    if (currentDataString === lastDataString && !centerView) {
+        return;
+    }
+    lastDataString = currentDataString;
+
     const markersData = [];
+// ...
     const pathsData = [];
     const ringsData = [];
     let userCurrentLng = START_LNG;
@@ -135,13 +147,15 @@ async function fetchAndDrawEveryone(centerView = false) {
             isCurrentUser: (currentUser && p.id === currentUser.id)
         });
 
-        // Prepare Path
-        const pathPoints = [[START_LAT, START_LNG]]; 
-        for (let i = START_LNG + 5; i < currentLng; i += 5) {
-            pathPoints.push([START_LAT, i]);
+        // Prepare Path (Only if moved)
+        if (distanceMeters > 0) {
+            const pathPoints = [[START_LAT, START_LNG]]; 
+            for (let i = START_LNG + 5; i < currentLng; i += 5) {
+                pathPoints.push([START_LAT, i]);
+            }
+            pathPoints.push([START_LAT, currentLng]);
+            pathsData.push({ points: pathPoints });
         }
-        pathPoints.push([START_LAT, currentLng]);
-        pathsData.push({ points: pathPoints });
 
         // Update User UI & Ring
         if (currentUser && p.id === currentUser.id) {
