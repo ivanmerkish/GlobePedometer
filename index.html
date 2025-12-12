@@ -20,15 +20,14 @@
 
   <div id="ui-layer">
     <div class="user-card">
-      <div id="my-avatar-preview" class="user-avatar"></div>
+      <div id="my-avatar-preview" class="user-avatar" onclick="openProfileSettings()" title="Настройки профиля"></div>
       <div>
         <div id="my-name" style="font-weight: bold;">Гость</div>
         <div style="font-size: 0.8rem; color: #94a3b8; cursor: pointer;" onclick="signOut()">Выйти</div>
       </div>
     </div>
 
-    <label>Выберите аватар:</label>
-    <div id="avatar-selection"></div>
+    <!-- Old avatar selection removed from here -->
 
     <label>Общий пробег (шаги):</label>
     <input type="number" id="stepInput" placeholder="0">
@@ -36,6 +35,24 @@
     
     <div style="margin-top: 10px; font-size: 0.9rem; color: #ccc;">
       <div>Ваш путь: <span id="kmDisplay" style="color: #38bdf8; font-weight: bold;">0</span> км</div>
+    </div>
+  </div>
+
+  <!-- Profile Modal -->
+  <div id="profile-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h2 id="modal-title">Настройка профиля</h2>
+      
+      <label>Отображаемое имя:</label>
+      <input type="text" id="modal-nickname" placeholder="Ваш никнейм">
+      
+      <label>Выберите аватар:</label>
+      <div id="modal-avatar-selection" class="avatar-grid"></div>
+
+      <div class="modal-actions">
+        <button class="action-btn" onclick="saveProfileSettings()">Сохранить</button>
+        <button class="secondary-btn" id="modal-close-btn" onclick="closeProfileModal()">Отмена</button>
+      </div>
     </div>
   </div>
 

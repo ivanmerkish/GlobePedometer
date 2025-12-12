@@ -37,6 +37,7 @@ world.ringsData([{lat: START_LAT, lng: START_LNG}])
 world.htmlElementsData([])
   .htmlLat(d => d.lat)
   .htmlLng(d => d.lng)
+  .htmlAltitude(0)
   .htmlElement(d => {
     const el = document.createElement('div');
     el.className = 'globe-marker';
@@ -84,9 +85,12 @@ async function handleLoginSuccess(user) {
   document.getElementById('ui-layer').style.display = 'block';
   document.getElementById('my-name').innerText = user.user_metadata.full_name || user.email;
 
+  let isNewUser = false;
+
   let { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
   
   if (!profile) {
+     isNewUser = true;
      await supabaseClient.from('profiles').insert([{ 
          id: user.id, email: user.email, nickname: user.user_metadata.full_name,
          avatar_url: avatarList[0], is_approved: false 
@@ -98,7 +102,14 @@ async function handleLoginSuccess(user) {
   if (profile && profile.is_approved) {
     document.getElementById('stepInput').value = profile.total_steps;
     currentAvatarUrl = profile.avatar_url || avatarList[0];
+    
     updateAvatarSelectionUI();
+    
+    // Show modal if it's a new user OR if they haven't set a nickname (logic could vary)
+    // Here we use the isNewUser flag we set earlier
+    if (isNewUser) {
+        openProfileSettings(true);
+    }
   } else {
     document.getElementById('stepInput').disabled = true;
     document.getElementById('stepInput').placeholder = "Доступ ограничен";
@@ -113,20 +124,75 @@ async function handleLoginSuccess(user) {
   setInterval(fetchAndDrawEveryone, 10000);
 }
 
-const avContainer = document.getElementById('avatar-selection');
+// --- MODAL & UI LOGIC ---
+
+// Generate Avatar Grid in Modal
+const modalAvContainer = document.getElementById('modal-avatar-selection');
 avatarList.forEach(url => {
    const d = document.createElement('div');
    d.className = 'avatar-opt';
    d.style.backgroundImage = `url('${url}')`;
    d.onclick = () => { currentAvatarUrl = url; updateAvatarSelectionUI(); };
-   avContainer.appendChild(d);
+   modalAvContainer.appendChild(d);
 });
 
 function updateAvatarSelectionUI() {
+   // Update modal selection state
    document.querySelectorAll('.avatar-opt').forEach(el => {
       el.classList.toggle('selected', el.style.backgroundImage.includes(currentAvatarUrl));
    });
+   // Update sidebar preview
    document.getElementById('my-avatar-preview').style.backgroundImage = `url('${currentAvatarUrl}')`;
+}
+
+function openProfileSettings(isFirstTime = false) {
+    const modal = document.getElementById('profile-modal');
+    modal.style.display = 'flex';
+    
+    // Pre-fill data
+    if (currentUser) {
+        document.getElementById('modal-nickname').value = document.getElementById('my-name').innerText;
+    }
+
+    // Configure for "First Time" vs "Settings"
+    const closeBtn = document.getElementById('modal-close-btn');
+    if (isFirstTime) {
+        document.getElementById('modal-title').innerText = "👋 Добро пожаловать!";
+        closeBtn.style.display = 'none'; // Force them to save
+    } else {
+        document.getElementById('modal-title').innerText = "Настройка профиля";
+        closeBtn.style.display = 'block';
+    }
+}
+
+function closeProfileModal() {
+    document.getElementById('profile-modal').style.display = 'none';
+}
+
+async function saveProfileSettings() {
+    const newName = document.getElementById('modal-nickname').value;
+    if (!newName) return alert("Введите имя!");
+    
+    // Update local UI immediately
+    document.getElementById('my-name').innerText = newName;
+    
+    // Save to DB
+    if (currentUser) {
+        const updates = {
+            id: currentUser.id,
+            nickname: newName,
+            avatar_url: currentAvatarUrl,
+            updated_at: new Date()
+        };
+        
+        const { error } = await supabaseClient.from('profiles').update(updates).eq('id', currentUser.id);
+        if (error) {
+            alert('Ошибка сохранения: ' + error.message);
+        } else {
+            closeProfileModal();
+            fetchAndDrawEveryone();
+        }
+    }
 }
 
 async function saveData(silent = false) {

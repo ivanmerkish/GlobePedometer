@@ -39,12 +39,40 @@ button.action-btn {
 button.action-btn:hover { opacity: 0.9; }
 
 .user-card { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #334155; }
-.user-avatar { width: 40px; height: 40px; border-radius: 50%; background-size: cover; border: 2px solid #38bdf8; }
+.user-avatar { 
+  width: 40px; height: 40px; border-radius: 50%; 
+  background-size: cover; background-position: center; border: 2px solid #38bdf8;
+  cursor: pointer; transition: transform 0.2s; 
+}
+.user-avatar:hover { transform: scale(1.1); box-shadow: 0 0 10px #38bdf8; }
+
+/* Modal Styles */
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.8); z-index: 300;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(5px);
+}
+.modal-content {
+  background: #0f172a; padding: 25px; border-radius: 12px;
+  width: 90%; max-width: 400px; border: 1px solid #334155;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5); color: white;
+}
+.avatar-grid {
+  display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px;
+}
+.modal-actions { display: flex; gap: 10px; }
+.secondary-btn {
+  background: transparent; border: 1px solid #94a3b8; color: #94a3b8;
+  padding: 12px; border-radius: 6px; cursor: pointer; flex: 1; font-size: 1rem;
+}
+.secondary-btn:hover { background: rgba(255,255,255,0.1); color: white; }
 
 #avatar-selection { display: flex; gap: 8px; margin-bottom: 15px; justify-content: center; flex-wrap: wrap;}
 .avatar-opt { 
   width: 35px; height: 35px; border-radius: 50%; border: 2px solid transparent; 
   cursor: pointer; background-color: rgba(255,255,255,0.1); padding: 2px; transition: 0.2s;
+  background-size: cover; background-position: center;
 }
 .avatar-opt:hover { transform: scale(1.1); }
 .avatar-opt.selected { border-color: #38bdf8; background-color: rgba(56, 189, 248, 0.2); }
@@ -57,7 +85,7 @@ button.action-btn:hover { opacity: 0.9; }
 .globe-marker {
   width: 30px; height: 30px; background-size: cover; background-position: center;
   transform: translate(-50%, -100%); cursor: pointer; border-radius: 50%; 
-  border: 2px solid white; transition: all 0.3s;
+  border: 2px solid white;
 }
 .globe-marker:hover { transform: translate(-50%, -120%) scale(1.3); z-index: 999; border-color: #38bdf8;}
 
