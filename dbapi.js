@@ -1,0 +1,58 @@
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+
+// Initialize Supabase client
+// Note: 'supabase' global comes from the CDN script tag in index.html
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+export const auth = {
+    // Listen to auth changes
+    onAuthStateChange: (callback) => {
+        return supabaseClient.auth.onAuthStateChange(callback);
+    },
+
+    // Sign in with Google
+    signInWithGoogle: async () => {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: window.location.href }
+        });
+        if (error) throw error;
+    },
+
+    // Sign out
+    signOut: async () => {
+        await supabaseClient.auth.signOut();
+    },
+
+    // Get current session manually
+    getSession: async () => {
+        return await supabaseClient.auth.getSession();
+    }
+};
+
+export const db = {
+    // Fetch a user profile by ID
+    getProfile: async (userId) => {
+        return await supabaseClient.from('profiles').select('*').eq('id', userId).single();
+    },
+
+    // Create a new profile
+    createProfile: async (profileData) => {
+        return await supabaseClient.from('profiles').insert([profileData]);
+    },
+
+    // Update specific fields of a profile
+    updateProfile: async (userId, updates) => {
+        return await supabaseClient.from('profiles').update(updates).eq('id', userId);
+    },
+
+    // Upsert (Insert or Update) profile
+    upsertProfile: async (profileData) => {
+        return await supabaseClient.from('profiles').upsert(profileData);
+    },
+
+    // Get all profiles for the leaderboard/globe
+    getAllProfiles: async () => {
+        return await supabaseClient.from('profiles').select('*');
+    }
+};
