@@ -4,6 +4,7 @@ import { initGlobe, updateGlobeData, centerGlobe } from './globe.js';
 
 let currentUser = null;
 let currentAvatarUrl = defaultAvatar;
+let dataLoopInterval = null;
 
 // --- INITIALIZATION ---
 
@@ -97,23 +98,22 @@ async function handleLoginSuccess(user) {
             }
         }
 
-        // Start Data Loop (Only after login)
-        fetchAndDrawEveryone();
-        setInterval(fetchAndDrawEveryone, 10000);
+        // Refresh data immediately to highlight user
+        fetchAndDrawEveryone(true);
+        dataLoopInterval = setInterval(() => fetchAndDrawEveryone(false), 10000);
 
     } catch (err) {
         console.error("Login Handling Error:", err);
-        alert("Ошибка входа: " + err.message);
-        document.getElementById('login-screen').style.display = 'flex';
-    }
+// ...
 }
 
-async function fetchAndDrawEveryone() {
+async function fetchAndDrawEveryone(centerView = false) {
     const { data: profiles, error } = await db.getAllProfiles();
     if (error) return console.error(error);
 
     const markersData = [];
     const pathsData = [];
+    let userCurrentLng = START_LNG;
 
     profiles.forEach(p => {
         const distanceMeters = (p.total_steps || 0) * STEP_LENGTH;
@@ -139,14 +139,18 @@ async function fetchAndDrawEveryone() {
         pathPoints.push([START_LAT, currentLng]);
         pathsData.push(pathPoints);
 
-        // Update User UI & Camera
+        // Update User UI
         if (currentUser && p.id === currentUser.id) {
             document.getElementById('kmDisplay').innerText = (distanceMeters / 1000).toFixed(1);
-            centerGlobe(START_LAT, currentLng);
+            userCurrentLng = currentLng;
         }
     });
 
     updateGlobeData(markersData, pathsData);
+    
+    if (centerView && currentUser) {
+        centerGlobe(START_LAT, userCurrentLng);
+    }
 }
 
 // --- GLOBAL ACTIONS (Attached to Window) ---
@@ -203,6 +207,12 @@ window.saveProfileSettings = async function() {
             closeProfileModal();
             fetchAndDrawEveryone();
         }
+    }
+};
+
+window.recenterView = function() {
+    if (currentUser) {
+        fetchAndDrawEveryone(true);
     }
 };
 

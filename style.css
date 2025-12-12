@@ -69,6 +69,15 @@ button.action-btn:hover { opacity: 0.9; }
 }
 .secondary-btn:hover { background: rgba(255,255,255,0.1); color: white; }
 
+.icon-btn {
+  background: rgba(255,255,255,0.1); border: 1px solid #334155; 
+  color: white; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; 
+  font-size: 1rem; transition: 0.2s; display: flex; align-items: center; justify-content: center;
+}
+.icon-btn:hover { background: rgba(56, 189, 248, 0.2); border-color: #38bdf8; }
+
+.stats-row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; font-size: 0.9rem; color: #ccc; }
+
 #avatar-selection { display: flex; gap: 8px; margin-bottom: 15px; justify-content: center; flex-wrap: wrap;}
 .avatar-opt { 
   width: 35px; height: 35px; border-radius: 50%; border: 2px solid transparent; 
