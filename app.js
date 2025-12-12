@@ -108,14 +108,17 @@ try {
 
 // --- ЛОГИКА ---
 
-async function checkSession() {
-  // Используем supabaseClient вместо supabase
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  if (session) handleLoginSuccess(session.user);
-}
-checkSession();
+// Use onAuthStateChange for robust auth handling (redirects, persistence)
+supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+        handleLoginSuccess(session.user);
+    } else if (event === 'SIGNED_OUT') {
+        window.location.reload();
+    }
+});
 
 async function signIn() {
+  console.log("Initiating sign in...");
   // Используем supabaseClient
   const { error } = await supabaseClient.auth.signInWithOAuth({
     provider: 'google',
@@ -126,57 +129,72 @@ async function signIn() {
 
 async function signOut() {
   await supabaseClient.auth.signOut();
-  window.location.reload();
 }
 
 async function handleLoginSuccess(user) {
-  currentUser = user;
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('ui-layer').style.display = 'block';
-  document.getElementById('my-name').innerText = user.user_metadata.full_name || user.email;
+  try {
+      currentUser = user;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('ui-layer').style.display = 'block';
+      // Use saved nickname if available, else default to metadata
+      // (This will be updated later if profile exists with nickname)
+      document.getElementById('my-name').innerText = user.user_metadata.full_name || user.email;
 
-  let isNewUser = false;
+      let isNewUser = false;
 
-  let { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
-  
-  if (!profile) {
-     isNewUser = true;
-     await supabaseClient.from('profiles').insert([{ 
-         id: user.id, email: user.email, nickname: user.user_metadata.full_name,
-         avatar_url: defaultAvatar, is_approved: false 
-     }]);
-     const res = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
-     profile = res.data;
+      let { data: profile } = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
+      
+      if (!profile) {
+         isNewUser = true;
+         // Create default profile
+         const { error: insertError } = await supabaseClient.from('profiles').insert([{ 
+             id: user.id, email: user.email, nickname: user.user_metadata.full_name,
+             avatar_url: defaultAvatar, is_approved: false 
+         }]);
+         
+         if (insertError) throw insertError;
+
+         // Re-fetch
+         const res = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
+         profile = res.data;
+      }
+
+      if (profile && profile.is_approved) {
+        document.getElementById('stepInput').value = profile.total_steps;
+        currentAvatarUrl = profile.avatar_url || defaultAvatar;
+        
+        // Use saved nickname if available
+        if (profile.nickname) {
+            document.getElementById('my-name').innerText = profile.nickname;
+        }
+        
+        updateAvatarSelectionUI();
+        
+        if (isNewUser) {
+            openProfileSettings(true);
+        }
+      } else {
+        document.getElementById('stepInput').disabled = true;
+        document.getElementById('stepInput').placeholder = "Доступ ограничен";
+        document.querySelector('.action-btn').style.display = 'none';
+        
+        const existingMsg = document.querySelector('.pending-msg');
+        if (!existingMsg) {
+            const msg = document.createElement('div');
+            msg.className = 'pending-msg';
+            msg.innerText = '🔒 Ваш аккаунт на проверке. Напишите админу.';
+            document.getElementById('ui-layer').appendChild(msg);
+        }
+      }
+
+      fetchAndDrawEveryone();
+      setInterval(fetchAndDrawEveryone, 10000);
+      
+  } catch (err) {
+      console.error("Login Error:", err);
+      alert("Ошибка входа: " + err.message);
+      document.getElementById('login-screen').style.display = 'flex';
   }
-
-  if (profile && profile.is_approved) {
-    document.getElementById('stepInput').value = profile.total_steps;
-    currentAvatarUrl = profile.avatar_url || defaultAvatar;
-    
-    // Use saved nickname if available
-    if (profile.nickname) {
-        document.getElementById('my-name').innerText = profile.nickname;
-    }
-    
-    updateAvatarSelectionUI();
-    
-    // Show modal if it's a new user OR if they haven't set a nickname (logic could vary)
-    // Here we use the isNewUser flag we set earlier
-    if (isNewUser) {
-        openProfileSettings(true);
-    }
-  } else {
-    document.getElementById('stepInput').disabled = true;
-    document.getElementById('stepInput').placeholder = "Доступ ограничен";
-    document.querySelector('.action-btn').style.display = 'none';
-    const msg = document.createElement('div');
-    msg.className = 'pending-msg';
-    msg.innerText = '🔒 Ваш аккаунт на проверке. Напишите админу.';
-    document.getElementById('ui-layer').appendChild(msg);
-  }
-
-  fetchAndDrawEveryone();
-  setInterval(fetchAndDrawEveryone, 10000);
 }
 
 // --- MODAL & UI LOGIC ---
