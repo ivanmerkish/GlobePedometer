@@ -5,6 +5,7 @@ import { initGlobe, updateGlobeData, centerGlobe } from './globe.js';
 let currentUser = null;
 let currentAvatarUrl = defaultAvatar;
 let dataLoopInterval = null;
+let lastDataString = "";
 
 // --- INITIALIZATION ---
 
@@ -21,10 +22,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 3. Check existing session (fallback if listener doesn't fire immediately)
+    // 3. Check existing session
     checkInitialSession();
 
-    // 4. Build UI (Modal avatars)
+    // 4. Build UI
     buildAvatarGrid();
 });
 
@@ -64,7 +65,7 @@ async function handleLoginSuccess(user) {
             const { error: insertError } = await db.createProfile(newProfile);
             if (insertError) throw insertError;
             
-            // Re-fetch to get any DB-generated fields
+            // Re-fetch
             const { data: refetched } = await db.getProfile(user.id);
             profile = refetched;
         }
@@ -84,7 +85,7 @@ async function handleLoginSuccess(user) {
                 openProfileSettings(true);
             }
         } else {
-            // Pending Approval State
+            // Pending Approval
             document.getElementById('stepInput').disabled = true;
             document.getElementById('stepInput').placeholder = "Доступ ограничен";
             document.querySelector('.action-btn').style.display = 'none';
@@ -98,35 +99,31 @@ async function handleLoginSuccess(user) {
             }
         }
 
-let lastDataString = "";
-
-// ...
-
-        // Refresh data immediately to highlight user
+        // Refresh data immediately
         fetchAndDrawEveryone(true);
         if (dataLoopInterval) clearInterval(dataLoopInterval);
         dataLoopInterval = setInterval(() => fetchAndDrawEveryone(false), 30000);
 
     } catch (err) {
-// ...
+        console.error("Login Handling Error:", err);
+        alert("Ошибка входа: " + err.message);
+        document.getElementById('login-screen').style.display = 'flex';
+    }
 }
 
 async function fetchAndDrawEveryone(centerView = false) {
     const { data: profiles, error } = await db.getAllProfiles();
     if (error) return console.error(error);
 
-    // Simple deduplication: Check if data actually changed
-    // We strictly check steps and avatars to avoid re-renders
+    // Simple deduplication
     const currentDataString = JSON.stringify(profiles.map(p => ({ s: p.total_steps, a: p.avatar_url, n: p.nickname })));
     
-    // If data is same AND we are not forcing a center view (initial load), skip update
     if (currentDataString === lastDataString && !centerView) {
         return;
     }
     lastDataString = currentDataString;
 
     const markersData = [];
-// ...
     const pathsData = [];
     const ringsData = [];
     let userCurrentLng = START_LNG;
@@ -136,7 +133,7 @@ async function fetchAndDrawEveryone(centerView = false) {
         const degreesTraveled = (distanceMeters / EARTH_CIRCUMFERENCE) * 360;
         const currentLng = START_LNG + degreesTraveled;
 
-        // Prepare Marker
+        // Marker
         markersData.push({
             id: p.id, 
             lat: START_LAT, 
@@ -147,7 +144,7 @@ async function fetchAndDrawEveryone(centerView = false) {
             isCurrentUser: (currentUser && p.id === currentUser.id)
         });
 
-        // Prepare Path (Only if moved)
+        // Path (Only if moved)
         if (distanceMeters > 0) {
             const pathPoints = [[START_LAT, START_LNG]]; 
             for (let i = START_LNG + 5; i < currentLng; i += 5) {
@@ -157,7 +154,7 @@ async function fetchAndDrawEveryone(centerView = false) {
             pathsData.push({ points: pathPoints });
         }
 
-        // Update User UI & Ring
+        // Current User Updates
         if (currentUser && p.id === currentUser.id) {
             document.getElementById('kmDisplay').innerText = (distanceMeters / 1000).toFixed(1);
             userCurrentLng = currentLng;
@@ -172,7 +169,7 @@ async function fetchAndDrawEveryone(centerView = false) {
     }
 }
 
-// --- GLOBAL ACTIONS (Attached to Window) ---
+// --- GLOBAL ACTIONS ---
 
 window.signIn = async function() {
     console.log("Initiating sign in...");
@@ -280,7 +277,6 @@ function updateAvatarSelectionUI() {
     if(preview) preview.style.backgroundImage = `url('${currentAvatarUrl}')`;
 }
 
-// UI Modal Exported Functions
 window.openProfileSettings = function(isFirstTime = false) {
     const modal = document.getElementById('profile-modal');
     modal.style.display = 'flex';
