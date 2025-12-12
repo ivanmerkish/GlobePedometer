@@ -100,6 +100,7 @@ async function handleLoginSuccess(user) {
 
         // Refresh data immediately to highlight user
         fetchAndDrawEveryone(true);
+        if (dataLoopInterval) clearInterval(dataLoopInterval);
         dataLoopInterval = setInterval(() => fetchAndDrawEveryone(false), 10000);
 
     } catch (err) {
