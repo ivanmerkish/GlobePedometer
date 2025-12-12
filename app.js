@@ -81,6 +81,14 @@ try {
       return el;
     });
 
+  // Path Settings (Red Line) - Restored
+  world.pathsData([])
+    .pathColor(() => 'rgba(255, 50, 50, 0.8)')
+    .pathDashLength(0.05)
+    .pathDashGap(0.01)
+    .pathDashAnimateTime(12000)
+    .pathStroke(2);
+
   world.controls().autoRotate = true;
   world.controls().autoRotateSpeed = 0.5;
   window.addEventListener('mousedown', () => { world.controls().autoRotate = false; });
@@ -144,6 +152,11 @@ async function handleLoginSuccess(user) {
   if (profile && profile.is_approved) {
     document.getElementById('stepInput').value = profile.total_steps;
     currentAvatarUrl = profile.avatar_url || defaultAvatar;
+    
+    // Use saved nickname if available
+    if (profile.nickname) {
+        document.getElementById('my-name').innerText = profile.nickname;
+    }
     
     updateAvatarSelectionUI();
     
@@ -263,8 +276,10 @@ async function saveProfileSettings() {
 async function saveData(silent = false) {
    if (!currentUser) return;
    const steps = parseInt(document.getElementById('stepInput').value) || 0;
+   const currentName = document.getElementById('my-name').innerText;
+
    const updates = {
-     id: currentUser.id, email: currentUser.email, nickname: currentUser.user_metadata.full_name,
+     id: currentUser.id, email: currentUser.email, nickname: currentName,
      avatar_url: currentAvatarUrl, total_steps: steps, updated_at: new Date()
    };
    const { error } = await supabaseClient.from('profiles').upsert(updates);
@@ -276,23 +291,37 @@ async function fetchAndDrawEveryone() {
   const { data: profiles, error } = await supabaseClient.from('profiles').select('*');
   if (error) return console.error(error);
 
-  const markersData = profiles.map(p => {
+  const markersData = [];
+  const pathsData = [];
+
+  profiles.forEach(p => {
      const distanceMeters = (p.total_steps || 0) * STEP_LENGTH;
      const degreesTraveled = (distanceMeters / EARTH_CIRCUMFERENCE) * 360;
      const currentLng = START_LNG + degreesTraveled;
+     
+     // Markers
+     markersData.push({
+        id: p.id, lat: START_LAT, lng: currentLng,
+        avatar_url: p.avatar_url || defaultAvatar,
+        nickname: p.nickname, km: (distanceMeters/1000).toFixed(0)
+     });
+
+     // Paths (Segments)
+     const pathPoints = [];
+     for(let i = START_LNG; i <= currentLng; i+=5) { 
+         pathPoints.push([START_LAT, i]);
+     }
+     pathPoints.push([START_LAT, currentLng]); // Final precise point
+     pathsData.push(pathPoints);
      
      if (currentUser && p.id === currentUser.id && is3DSupported) {
         document.getElementById('kmDisplay').innerText = (distanceMeters/1000).toFixed(1);
         world.pointOfView({ lat: START_LAT, lng: currentLng, altitude: 1.8 }, 2000);
      }
-     return {
-        id: p.id, lat: START_LAT, lng: currentLng,
-        avatar_url: p.avatar_url || defaultAvatar,
-        nickname: p.nickname, km: (distanceMeters/1000).toFixed(0)
-     };
   });
   
   if (is3DSupported) {
       world.htmlElementsData(markersData);
+      world.pathsData(pathsData);
   }
 }
