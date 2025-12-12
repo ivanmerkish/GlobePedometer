@@ -1,4 +1,4 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_FUNCTION_URL } from './config.js';
 
 // Initialize Supabase client
 // Note: 'supabase' global comes from the CDN script tag in index.html
@@ -17,6 +17,28 @@ export const auth = {
             options: { redirectTo: window.location.href }
         });
         if (error) throw error;
+    },
+
+    // Verify Telegram Login via Edge Function
+    verifyTelegramLogin: async (telegramData) => {
+        const response = await fetch(SUPABASE_FUNCTION_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+                provider: 'telegram',
+                data: telegramData
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || 'Telegram verification failed');
+        }
+
+        return await response.json();
     },
 
     // Sign out

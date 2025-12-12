@@ -1,6 +1,9 @@
 // --- CONFIGURATION ---
 export const SUPABASE_URL = 'https://jwekcyygauegqbqpssis.supabase.co';
 export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3ZWtjeXlnYXVlZ3FicXBzc2lzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUyOTA4NTUsImV4cCI6MjA4MDg2Njg1NX0.hyJbOihRR7Fd5xEEmmduDk-4fR4VJEPtEHhhj0m2oKM';
+// TODO: Replace with your actual project reference ID (from Supabase Dashboard URL)
+export const SUPABASE_PROJECT_REF = 'jwekcyygauegqbqpssis'; 
+export const SUPABASE_FUNCTION_URL = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/auth-bridge`;
 
 export const EARTH_CIRCUMFERENCE = 40075000; 
 export const STEP_LENGTH = 0.75; 

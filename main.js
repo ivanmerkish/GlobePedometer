@@ -1,6 +1,7 @@
-import { avatarGroups, defaultAvatar, EARTH_CIRCUMFERENCE, STEP_LENGTH, START_LAT, START_LNG } from './config.js';
+import { avatarGroups, defaultAvatar, START_LAT, START_LNG } from './config.js';
 import { auth, db } from './dbapi.js';
 import { initGlobe, updateGlobeData, centerGlobe } from './globe.js';
+import { calculateDistanceKm, calculateLongitude, generatePathPoints } from './utils.js';
 
 let currentUser = null;
 let currentAvatarUrl = defaultAvatar;
@@ -129,9 +130,8 @@ async function fetchAndDrawEveryone(centerView = false) {
     let userCurrentLng = START_LNG;
 
     profiles.forEach(p => {
-        const distanceMeters = (p.total_steps || 0) * STEP_LENGTH;
-        const degreesTraveled = (distanceMeters / EARTH_CIRCUMFERENCE) * 360;
-        const currentLng = START_LNG + degreesTraveled;
+        const distanceKm = calculateDistanceKm(p.total_steps);
+        const currentLng = calculateLongitude(p.total_steps);
 
         // Marker
         markersData.push({
@@ -140,23 +140,19 @@ async function fetchAndDrawEveryone(centerView = false) {
             lng: currentLng,
             avatar_url: p.avatar_url || defaultAvatar,
             nickname: p.nickname, 
-            km: (distanceMeters / 1000).toFixed(0),
+            km: distanceKm,
             isCurrentUser: (currentUser && p.id === currentUser.id)
         });
 
         // Path (Only if moved)
-        if (distanceMeters > 0) {
-            const pathPoints = [[START_LAT, START_LNG]]; 
-            for (let i = START_LNG + 5; i < currentLng; i += 5) {
-                pathPoints.push([START_LAT, i]);
-            }
-            pathPoints.push([START_LAT, currentLng]);
+        if (p.total_steps > 0) {
+            const pathPoints = generatePathPoints(currentLng);
             pathsData.push({ points: pathPoints });
         }
 
         // Current User Updates
         if (currentUser && p.id === currentUser.id) {
-            document.getElementById('kmDisplay').innerText = (distanceMeters / 1000).toFixed(1);
+            document.getElementById('kmDisplay').innerText = distanceKm;
             userCurrentLng = currentLng;
             ringsData.push({ lat: START_LAT, lng: currentLng });
         }
@@ -177,6 +173,32 @@ window.signIn = async function() {
         await auth.signInWithGoogle();
     } catch (err) {
         alert(err.message);
+    }
+};
+
+window.onTelegramAuth = async function(user) {
+    try {
+        console.log("Telegram auth received:", user);
+        const result = await auth.verifyTelegramLogin(user);
+        
+        // Result contains { user: { id: 'tg_123', ... } }
+        // Since we don't have a real JWT yet, we manually trigger login success
+        // In a full implementation, result should contain a session token.
+        
+        // Mock a Supabase User object
+        const mockUser = {
+            id: result.user.id,
+            email: result.user.email,
+            user_metadata: {
+                full_name: result.user.full_name,
+                avatar_url: result.user.avatar_url
+            }
+        };
+        
+        handleLoginSuccess(mockUser);
+        
+    } catch (err) {
+        alert("Telegram Error: " + err.message);
     }
 };
 
