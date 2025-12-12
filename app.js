@@ -89,9 +89,7 @@ try {
     .pathDashAnimateTime(12000)
     .pathStroke(2);
 
-  world.controls().autoRotate = true;
-  world.controls().autoRotateSpeed = 0.5;
-  window.addEventListener('mousedown', () => { world.controls().autoRotate = false; });
+  world.controls().autoRotate = false;
   
   is3DSupported = true;
 
