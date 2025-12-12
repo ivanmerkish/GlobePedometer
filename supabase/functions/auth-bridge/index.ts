@@ -40,10 +40,17 @@ async function handleTelegram(data: any) {
 
   // 1. Validate Telegram Hash
   const { hash, ...userData } = data;
+  
+  // Debug logging
+  console.log("Received Data:", JSON.stringify(userData));
+  console.log("Received Hash:", hash);
+
   const dataCheckArr = Object.keys(userData)
+    .sort() // Sort keys alphabetically
     .map((key) => `${key}=${userData[key]}`)
-    .sort()
     .join('\n');
+
+  console.log("Check String:", JSON.stringify(dataCheckArr));
 
   const secretKey = await crypto.subtle.importKey(
     "raw",
