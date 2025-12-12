@@ -116,6 +116,7 @@ async function fetchAndDrawEveryone(centerView = false) {
 
     const markersData = [];
     const pathsData = [];
+    const ringsData = [];
     let userCurrentLng = START_LNG;
 
     profiles.forEach(p => {
@@ -135,21 +136,22 @@ async function fetchAndDrawEveryone(centerView = false) {
         });
 
         // Prepare Path
-        const pathPoints = [];
-        for (let i = START_LNG; i <= currentLng; i += 5) {
+        const pathPoints = [[START_LAT, START_LNG]]; 
+        for (let i = START_LNG + 5; i < currentLng; i += 5) {
             pathPoints.push([START_LAT, i]);
         }
         pathPoints.push([START_LAT, currentLng]);
-        pathsData.push(pathPoints);
+        pathsData.push({ points: pathPoints });
 
-        // Update User UI
+        // Update User UI & Ring
         if (currentUser && p.id === currentUser.id) {
             document.getElementById('kmDisplay').innerText = (distanceMeters / 1000).toFixed(1);
             userCurrentLng = currentLng;
+            ringsData.push({ lat: START_LAT, lng: currentLng });
         }
     });
 
-    updateGlobeData(markersData, pathsData);
+    updateGlobeData(markersData, pathsData, ringsData);
     
     if (centerView && currentUser) {
         centerGlobe(START_LAT, userCurrentLng);

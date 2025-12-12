@@ -14,8 +14,12 @@ export function initGlobe(containerElement) {
             .atmosphereColor('lightskyblue')
             (containerElement);
 
-        world.ringsData([{ lat: START_LAT, lng: START_LNG }])
-            .ringColor(() => 'white').ringMaxRadius(2).ringPropagationSpeed(2).ringRepeatPeriod(1000);
+        // Setup Rings (Pulse effect)
+        world.ringsData([])
+            .ringColor(() => 'white')
+            .ringMaxRadius(2)
+            .ringPropagationSpeed(2)
+            .ringRepeatPeriod(1000);
 
         // Setup HTML markers rendering logic
         world.htmlElementsData([])
@@ -43,6 +47,9 @@ export function initGlobe(containerElement) {
 
         // Setup Path Settings
         world.pathsData([])
+            .pathPoints(d => d.points)
+            .pathPointLat(p => p[0])
+            .pathPointLng(p => p[1])
             .pathColor(() => 'rgba(255, 50, 50, 0.8)')
             .pathDashLength(0.05)
             .pathDashGap(0.01)
@@ -72,11 +79,12 @@ export function initGlobe(containerElement) {
 }
 
 // Update markers and paths on the globe
-export function updateGlobeData(markersData, pathsData) {
+export function updateGlobeData(markersData, pathsData, ringsData = []) {
     if (!is3DSupported || !world) return;
     
     world.htmlElementsData(markersData);
     world.pathsData(pathsData);
+    world.ringsData(ringsData);
 }
 
 // Center view on specific coordinates
