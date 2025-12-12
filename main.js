@@ -97,7 +97,7 @@ async function handleLoginSuccess(user) {
             }
         }
 
-        // Start Data Loop
+        // Start Data Loop (Only after login)
         fetchAndDrawEveryone();
         setInterval(fetchAndDrawEveryone, 10000);
 
