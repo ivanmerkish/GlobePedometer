@@ -7,20 +7,46 @@ const STEP_LENGTH = 0.75;
 const START_LAT = 0; 
 const START_LNG = 37.6; 
 
-const avatarList = [
-  'https://cdn-icons-png.flaticon.com/512/4140/4140048.png', 
-  'https://cdn-icons-png.flaticon.com/512/4140/4140037.png', 
-  'https://cdn-icons-png.flaticon.com/512/4140/4140047.png', 
-  'https://cdn-icons-png.flaticon.com/512/3408/3408455.png',
-  'https://cdn-icons-png.flaticon.com/512/1999/1999625.png',
-  'https://cdn-icons-png.flaticon.com/512/949/949635.png'
+const avatarGroups = [
+  {
+    name: "Люди",
+    icons: [
+      'https://cdn-icons-png.flaticon.com/512/4140/4140048.png', 
+      'https://cdn-icons-png.flaticon.com/512/4140/4140037.png', 
+      'https://cdn-icons-png.flaticon.com/512/4140/4140047.png', 
+      'https://cdn-icons-png.flaticon.com/512/3408/3408455.png',
+      'https://cdn-icons-png.flaticon.com/512/1999/1999625.png'
+    ]
+  },
+  {
+    name: "Роботы",
+    icons: [
+      'https://cdn-icons-png.flaticon.com/512/4712/4712109.png',
+      'https://cdn-icons-png.flaticon.com/512/4712/4712027.png',
+      'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
+      'https://cdn-icons-png.flaticon.com/512/2040/2040946.png',
+      'https://cdn-icons-png.flaticon.com/512/4233/4233830.png'
+    ]
+  },
+  {
+    name: "Животные",
+    icons: [
+      'https://cdn-icons-png.flaticon.com/512/616/616408.png',
+      'https://cdn-icons-png.flaticon.com/512/1998/1998627.png',
+      'https://cdn-icons-png.flaticon.com/512/616/616412.png',
+      'https://cdn-icons-png.flaticon.com/512/616/616554.png',
+      'https://cdn-icons-png.flaticon.com/512/235/235359.png'
+    ]
+  }
 ];
+
+const defaultAvatar = avatarGroups[0].icons[0];
 
 // --- ИНИЦИАЛИЗАЦИЯ (ИСПРАВЛЕНО) ---
 // Мы используем имя supabaseClient, чтобы не конфликтовать с библиотекой
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let currentAvatarUrl = avatarList[0];
+let currentAvatarUrl = defaultAvatar;
 let currentUser = null;
 
 const world = Globe()
@@ -93,7 +119,7 @@ async function handleLoginSuccess(user) {
      isNewUser = true;
      await supabaseClient.from('profiles').insert([{ 
          id: user.id, email: user.email, nickname: user.user_metadata.full_name,
-         avatar_url: avatarList[0], is_approved: false 
+         avatar_url: defaultAvatar, is_approved: false 
      }]);
      const res = await supabaseClient.from('profiles').select('*').eq('id', user.id).single();
      profile = res.data;
@@ -101,7 +127,7 @@ async function handleLoginSuccess(user) {
 
   if (profile && profile.is_approved) {
     document.getElementById('stepInput').value = profile.total_steps;
-    currentAvatarUrl = profile.avatar_url || avatarList[0];
+    currentAvatarUrl = profile.avatar_url || defaultAvatar;
     
     updateAvatarSelectionUI();
     
@@ -128,12 +154,35 @@ async function handleLoginSuccess(user) {
 
 // Generate Avatar Grid in Modal
 const modalAvContainer = document.getElementById('modal-avatar-selection');
-avatarList.forEach(url => {
-   const d = document.createElement('div');
-   d.className = 'avatar-opt';
-   d.style.backgroundImage = `url('${url}')`;
-   d.onclick = () => { currentAvatarUrl = url; updateAvatarSelectionUI(); };
-   modalAvContainer.appendChild(d);
+modalAvContainer.innerHTML = ''; // Clear previous if any
+
+avatarGroups.forEach(group => {
+    // Header
+    const title = document.createElement('div');
+    title.style.width = '100%';
+    title.style.fontSize = '0.9rem';
+    title.style.color = '#94a3b8';
+    title.style.marginTop = '10px';
+    title.style.marginBottom = '5px';
+    title.style.textAlign = 'left';
+    title.innerText = group.name;
+    modalAvContainer.appendChild(title);
+    
+    // Icons
+    const grid = document.createElement('div');
+    grid.style.display = 'flex';
+    grid.style.gap = '10px';
+    grid.style.flexWrap = 'wrap';
+    grid.style.justifyContent = 'flex-start'; // Align left
+    
+    group.icons.forEach(url => {
+       const d = document.createElement('div');
+       d.className = 'avatar-opt';
+       d.style.backgroundImage = `url('${url}')`;
+       d.onclick = () => { currentAvatarUrl = url; updateAvatarSelectionUI(); };
+       grid.appendChild(d);
+    });
+    modalAvContainer.appendChild(grid);
 });
 
 function updateAvatarSelectionUI() {
@@ -222,7 +271,7 @@ async function fetchAndDrawEveryone() {
      }
      return {
         id: p.id, lat: START_LAT, lng: currentLng,
-        avatar_url: p.avatar_url || avatarList[0],
+        avatar_url: p.avatar_url || defaultAvatar,
         nickname: p.nickname, km: (distanceMeters/1000).toFixed(0)
      };
   });

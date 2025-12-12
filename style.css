@@ -57,6 +57,7 @@ button.action-btn:hover { opacity: 0.9; }
   background: #0f172a; padding: 25px; border-radius: 12px;
   width: 90%; max-width: 400px; border: 1px solid #334155;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5); color: white;
+  max-height: 80vh; overflow-y: auto;
 }
 .avatar-grid {
   display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px;
