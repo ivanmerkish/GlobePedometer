@@ -46,27 +46,37 @@ async function handleTelegram(data: any) {
   console.log("Received Hash:", hash);
 
   const dataCheckArr = Object.keys(userData)
-    .sort() // Sort keys alphabetically
+    .sort()
     .map((key) => `${key}=${userData[key]}`)
     .join('\n');
 
   console.log("Check String:", JSON.stringify(dataCheckArr));
 
+  const encoder = new TextEncoder();
+  
+  // 1. The secret key is the SHA-256 hash of the bot token
+  const secretKeyBuffer = await crypto.subtle.digest(
+    "SHA-256", 
+    encoder.encode(BOT_TOKEN)
+  );
+
+  // 2. Use this digest as the HMAC key
   const secretKey = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(BOT_TOKEN),
+    secretKeyBuffer,
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
   );
 
-  const secretKeyHash = await crypto.subtle.sign(
+  // 3. Sign the data string
+  const signature = await crypto.subtle.sign(
     "HMAC",
     secretKey,
-    new TextEncoder().encode(dataCheckArr)
+    encoder.encode(dataCheckArr)
   );
 
-  const hexHash = Array.from(new Uint8Array(secretKeyHash))
+  const hexHash = Array.from(new Uint8Array(signature))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 
