@@ -104,7 +104,9 @@ async function handleLoginSuccess(user) {
 
     } catch (err) {
         console.error("Login Handling Error:", err);
-// ...
+        alert("Ошибка входа: " + err.message);
+        document.getElementById('login-screen').style.display = 'flex';
+    }
 }
 
 async function fetchAndDrawEveryone(centerView = false) {
