@@ -97,13 +97,36 @@ async function handleTelegram(data: any) {
       password: password
   });
 
-  if (loginError || !loginData.session) {
-      console.error("Login failed:", loginError);
-      throw new Error(`Failed to login user: ${loginError?.message}`);
+  if (loginError) {
+      console.log("Login failed (wrong password?), resetting password via Admin...", loginError.message);
+      
+      // Find the user to get ID
+      const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+      const existingUser = users.find(u => u.email === email);
+      
+      if (existingUser) {
+          // Force update password to the current deterministic hash
+          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, { password: password });
+          if (updateError) throw updateError;
+          
+          // Retry login
+          const { data: retryData, error: retryError } = await supabaseClient.auth.signInWithPassword({
+              email: email,
+              password: password
+          });
+          
+          if (retryError || !retryData.session) throw retryError || new Error("Retry login failed");
+          
+          session = retryData.session;
+          user = retryData.user;
+      } else {
+          // User doesn't exist but create failed earlier? Weird state.
+          throw new Error(`User creation failed and login failed: ${loginError.message}`);
+      }
+  } else {
+      session = loginData.session;
+      user = loginData.user;
   }
-  
-  session = loginData.session;
-  user = loginData.user;
 
   // 4. Return User Data & Session
   return new Response(
