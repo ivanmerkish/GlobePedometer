@@ -62,44 +62,55 @@ async function handleTelegram(data: any) {
   }
 
   // 3. Find or Create User in Supabase Auth
+  // We need both Admin client (to create) and regular client (to sign in if exists)
   const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-  const email = `${userData.id}@telegram.bot`; // Virtual email
-  const password = hexHash; // Use the hash as a deterministic password (secure enough as it changes per session, but we mostly use admin access)
-
-  // Try to get user by email (filtering is limited in admin api without fetching list, so let's try create and handle error or list)
-  // Easiest is listUsers with filter.
+  const supabaseClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY') ?? '');
   
-  const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-  if (listError) throw listError;
-  
-  let user = users.find(u => u.email === email);
+  const email = `${userData.id}@telegram.bot`; 
+  const password = hexHash; // Deterministic password based on TG hash
 
-  if (!user) {
-      // Create new user
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-          email: email,
-          password: password, // Required
-          email_confirm: true,
-          user_metadata: {
-              full_name: `${userData.first_name} ${userData.last_name || ''}`.trim(),
-              avatar_url: userData.photo_url,
-              provider: 'telegram'
-          }
-      });
-      if (createError) throw createError;
-      user = newUser.user;
+  let user;
+  let session;
+
+  // Try to create new user
+  const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email: email,
+      password: password,
+      email_confirm: true,
+      user_metadata: {
+          full_name: `${userData.first_name} ${userData.last_name || ''}`.trim(),
+          avatar_url: userData.photo_url,
+          provider: 'telegram'
+      }
+  });
+
+  if (!createError && createData.user) {
+      user = createData.user;
+      console.log("User created:", user.id);
+  } else {
+      console.log("Create failed (likely exists), proceeding to login...", createError?.message);
   }
 
-  // 4. Return User Data
+  // Always sign in to get the session tokens (needed for RLS on frontend)
+  const { data: loginData, error: loginError } = await supabaseClient.auth.signInWithPassword({
+      email: email,
+      password: password
+  });
+
+  if (loginError || !loginData.session) {
+      console.error("Login failed:", loginError);
+      throw new Error(`Failed to login user: ${loginError?.message}`);
+  }
+  
+  session = loginData.session;
+  user = loginData.user;
+
+  // 4. Return User Data & Session
   return new Response(
     JSON.stringify({ 
         message: 'Verified', 
-        user: {
-            id: user.id, // Real UUID from Auth
-            email: user.email,
-            full_name: user.user_metadata.full_name,
-            avatar_url: user.user_metadata.avatar_url
-        } 
+        session: session,
+        user: user
     }),
     { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );

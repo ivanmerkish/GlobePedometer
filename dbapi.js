@@ -41,6 +41,12 @@ export const auth = {
         return await response.json();
     },
 
+    // Set session manually (for custom auth)
+    setSession: async (session) => {
+        const { error } = await supabaseClient.auth.setSession(session);
+        if (error) throw error;
+    },
+
     // Sign out
     signOut: async () => {
         await supabaseClient.auth.signOut();

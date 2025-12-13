@@ -35,3 +35,11 @@
 ## 5. Error Handling
 *   **WebGL:** Always wrap 3D initialization in `try-catch` to handle driver crashes or unsupported devices gracefully (show a fallback UI message).
 *   **Auth:** Handle redirect loops and session errors robustly using `onAuthStateChange`.
+
+## 6. Secrets & Environment Variables
+*   **Public:** `SUPABASE_URL` and `SUPABASE_ANON_KEY` are safe to expose in client-side code (`config.js`).
+*   **Private:** ALL other keys (`TELEGRAM_BOT_TOKEN`, `SERVICE_ROLE_KEY`, `JWT_SECRET`) must be stored in **Supabase Secrets**.
+*   **Edge Functions:**
+    *   Use `Deno.env.get('MY_SECRET')` to access secrets.
+    *   Do not rely on system prefixes like `SUPABASE_` if they are inconsistent; set explicit secrets (e.g., `JWT_SECRET`) via CLI.
+    *   Always verify secrets presence at the start of the function execution.

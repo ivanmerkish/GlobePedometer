@@ -181,21 +181,12 @@ window.onTelegramAuth = async function(user) {
         console.log("Telegram auth received:", user);
         const result = await auth.verifyTelegramLogin(user);
         
-        // Result contains { user: { id: 'tg_123', ... } }
-        // Since we don't have a real JWT yet, we manually trigger login success
-        // In a full implementation, result should contain a session token.
-        
-        // Mock a Supabase User object
-        const mockUser = {
-            id: result.user.id,
-            email: result.user.email,
-            user_metadata: {
-                full_name: result.user.full_name,
-                avatar_url: result.user.avatar_url
-            }
-        };
-        
-        handleLoginSuccess(mockUser);
+        if (result.session) {
+            await auth.setSession(result.session);
+            // The onAuthStateChange listener will pick this up and call handleLoginSuccess
+        } else {
+            throw new Error("No session returned from server");
+        }
         
     } catch (err) {
         alert("Telegram Error: " + err.message);
