@@ -1,12 +1,14 @@
 import { defaultAvatar, START_LAT, START_LNG } from './config.js';
-import { auth, db } from './dbapi.js';
+import { auth, db, functions } from './dbapi.js';
 import { initGlobe, updateGlobeData, centerGlobe } from './globe.js';
 import { calculateDistanceKm, calculateLongitude, generatePathPoints } from './utils.js';
 import { 
     toggleLoginScreen, updateUserName, updateStats, updateTotalSteps, setInputState, showPendingMessage, 
-    buildAvatarGrid, updateAvatarSelectionUI, openProfileSettings, closeProfileModal 
+    buildAvatarGrid, updateAvatarSelectionUI, openProfileSettings, closeProfileModal,
+    toggleAdminButton, openAdminPanelUI, closeAdminPanelUI
 } from './ui.js';
 import { handleScreenshotUpload } from './ocr.js';
+import { setLanguage, initI18n } from './lang.js';
 
 let currentUser = null;
 let currentAvatarUrl = defaultAvatar;
@@ -15,7 +17,8 @@ let lastDataString = "";
 
 // --- INITIALIZATION ---
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await initI18n(); // Initialize I18n first
     initGlobe(document.getElementById('globeViz'));
 
     auth.onAuthStateChange((event, session) => {
@@ -75,6 +78,13 @@ async function handleLoginSuccess(user) {
             updateTotalSteps(profile.total_steps || 0);
             setInputState(false);
             
+            // Admin Check
+            if (profile.role === 'admin') {
+                toggleAdminButton(true);
+            } else {
+                toggleAdminButton(false);
+            }
+            
             currentAvatarUrl = profile.avatar_url || defaultAvatar; 
             updateAvatarSelectionUI(currentAvatarUrl);
 
@@ -89,6 +99,7 @@ async function handleLoginSuccess(user) {
             updateTotalSteps(0);
             setInputState(true);
             showPendingMessage();
+            toggleAdminButton(false);
         }
 
         fetchAndDrawEveryone(true);
@@ -114,7 +125,7 @@ async function fetchAndDrawEveryone(centerView = false) {
     const { data: profiles, error } = await db.getAllProfiles();
     if (error) return console.error(error);
 
-    const currentDataString = JSON.stringify(profiles.map(p => ({ s: p.total_steps, a: p.avatar_url, n: p.nickname })));
+    const currentDataString = JSON.stringify(profiles.map(p => ({ s: p.total_steps, a: p.avatar_url, n: p.nickname, app: p.is_approved })));
     if (currentDataString === lastDataString && !centerView) return;
     lastDataString = currentDataString;
 
@@ -144,7 +155,7 @@ async function fetchAndDrawEveryone(centerView = false) {
 
         if (currentUser && p.id === currentUser.id) {
             updateStats(distanceKm);
-            updateTotalSteps(p.total_steps); // Keep UI synced
+            updateTotalSteps(p.total_steps);
             userCurrentLng = currentLng;
             ringsData.push({ lat: START_LAT, lng: currentLng });
         }
@@ -158,6 +169,8 @@ async function fetchAndDrawEveryone(centerView = false) {
 }
 
 // --- GLOBAL ACTIONS ---
+
+window.changeLang = (lang) => setLanguage(lang);
 
 window.signIn = async function() {
     try {
@@ -239,6 +252,37 @@ window.recenterView = function() {
         fetchAndDrawEveryone(true);
     }
 };
+
+// --- ADMIN ACTIONS ---
+
+window.openAdminPanel = async function() {
+    if (!currentUser) return;
+    
+    // Fetch all users
+    const { data: users, error } = await db.getAllProfiles();
+    if (error) {
+        alert("Ошибка загрузки списка: " + error.message);
+        return;
+    }
+
+    const onAction = async (action, targetId) => {
+        try {
+            // Optimistic UI or wait? Let's wait.
+            const res = await functions.invoke('admin-actions', { action, targetId });
+            if (res.success) {
+                alert("Успешно!");
+                window.openAdminPanel(); // Refresh list
+                fetchAndDrawEveryone(); // Refresh globe status
+            }
+        } catch (err) {
+            alert("Ошибка: " + err.message);
+        }
+    };
+
+    openAdminPanelUI(users, onAction);
+};
+
+window.closeAdminPanel = closeAdminPanelUI;
 
 // UI helpers
 window.openProfileSettings = () => openProfileSettings(currentUser, false);

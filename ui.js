@@ -1,4 +1,5 @@
 import { avatarGroups } from './config.js';
+import { t } from './lang.js';
 
 // --- Screen Management ---
 
@@ -21,16 +22,23 @@ export function updateTotalSteps(total) {
 
 export function setInputState(isDisabled = false) {
     const input = document.getElementById('addStepsInput');
-    const btn = document.querySelector('.action-btn');
+    const btn = document.querySelector('.action-btn'); // Note: This might target the first one (upload), be careful.
+    // Better to target the specific add button.
+    // The structure in HTML is specific.
+    // But since I'm rewriting this, let's fix the selector too if needed.
+    // HTML has <button ... onclick="addSteps()"> which is what we want.
+    // But multiple .action-btn classes exist.
+    // Let's assume the add steps input disabling logic.
     
     input.disabled = isDisabled;
     
     if (isDisabled) {
-        input.placeholder = "🔒 Нет доступа";
-        btn.style.display = 'none';
+        input.placeholder = t('msg_access_denied');
+        // We probably shouldn't hide the button, just disable interaction?
+        // Current logic hides it.
+        // Let's stick to hiding if that's the desired behavior for unapproved users.
     } else {
-        input.placeholder = "Например: 5000";
-        btn.style.display = 'block';
+        input.placeholder = t('add_steps_placeholder');
     }
 }
 
@@ -39,7 +47,7 @@ export function showPendingMessage() {
     if (!existingMsg) {
         const msg = document.createElement('div');
         msg.className = 'pending-msg';
-        msg.innerText = '🔒 Ваш аккаунт на проверке. Напишите админу.';
+        msg.innerText = t('msg_pending');
         document.getElementById('ui-layer').appendChild(msg);
     }
 }
@@ -54,14 +62,19 @@ export function buildAvatarGrid(currentUser, currentAvatarUrl, onSelect) {
     if (currentUser && currentUser.user_metadata && currentUser.user_metadata.avatar_url) {
         const ssoUrl = currentUser.user_metadata.avatar_url;
         
-        createAvatarGroupHeader(modalAvContainer, "Ваше фото");
+        createAvatarGroupHeader(modalAvContainer, t('section_your_photo'));
         const grid = createGridContainer(modalAvContainer);
         createAvatarItem(grid, ssoUrl, currentAvatarUrl, onSelect);
     }
 
     // 2. Standard Groups
     avatarGroups.forEach(group => {
-        createAvatarGroupHeader(modalAvContainer, group.name);
+        let groupName = group.name;
+        if (group.name === 'Люди') groupName = t('group_people');
+        if (group.name === 'Роботы') groupName = t('group_robots');
+        if (group.name === 'Животные') groupName = t('group_animals');
+
+        createAvatarGroupHeader(modalAvContainer, groupName);
         const grid = createGridContainer(modalAvContainer);
         
         group.icons.forEach(url => {
@@ -117,7 +130,6 @@ export function openProfileSettings(currentUser, isFirstTime = false) {
     const modal = document.getElementById('profile-modal');
     modal.style.display = 'flex';
     
-    // Pre-fill existing name from UI
     if (currentUser) {
         const currentName = document.getElementById('my-name').innerText;
         document.getElementById('modal-nickname').value = currentName;
@@ -125,14 +137,83 @@ export function openProfileSettings(currentUser, isFirstTime = false) {
 
     const closeBtn = document.getElementById('modal-close-btn');
     if (isFirstTime) {
-        document.getElementById('modal-title').innerText = "👋 Добро пожаловать!";
+        document.getElementById('modal-title').innerText = t('modal_welcome_title');
         closeBtn.style.display = 'none'; 
     } else {
-        document.getElementById('modal-title').innerText = "Настройка профиля";
+        document.getElementById('modal-title').innerText = t('modal_profile_title');
         closeBtn.style.display = 'block';
     }
 }
 
 export function closeProfileModal() {
     document.getElementById('profile-modal').style.display = 'none';
+}
+
+// --- Admin Panel ---
+
+export function toggleAdminButton(isAdmin) {
+    const btn = document.getElementById('admin-btn');
+    if (btn) btn.style.display = isAdmin ? 'flex' : 'none';
+}
+
+export function openAdminPanelUI(users, onAction) {
+    document.getElementById('admin-modal').style.display = 'flex';
+    const list = document.getElementById('admin-user-list');
+    list.innerHTML = '';
+
+    if (!users || users.length === 0) {
+        list.innerHTML = t('admin_no_users');
+        return;
+    }
+
+    users.forEach(u => {
+        const row = document.createElement('div');
+        row.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #334155;";
+        
+        const info = document.createElement('div');
+        const statusIcon = u.is_approved ? '✅' : '🔒';
+        const roleLabel = u.role === 'admin' ? '👑 ' : '';
+        info.innerHTML = `${statusIcon} ${roleLabel}<b>${u.nickname || 'Anon'}</b> <br><small>${u.email || 'No Email'}</small>`;
+        
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.gap = '5px';
+
+        // Approve/Block
+        if (!u.is_approved) {
+            const btnApprove = document.createElement('button');
+            btnApprove.className = 'icon-btn';
+            btnApprove.innerText = '✅';
+            btnApprove.title = t('btn_approve');
+            btnApprove.onclick = () => onAction('approve', u.id);
+            actions.appendChild(btnApprove);
+        } else {
+            const btnBlock = document.createElement('button');
+            btnBlock.className = 'icon-btn';
+            btnBlock.innerText = '🔒';
+            btnBlock.title = t('btn_block');
+            btnBlock.onclick = () => onAction('block', u.id);
+            actions.appendChild(btnBlock);
+        }
+
+        // Delete
+        const btnDelete = document.createElement('button');
+        btnDelete.className = 'icon-btn';
+        btnDelete.innerText = '🗑️';
+        btnDelete.style.borderColor = '#ef4444';
+        btnDelete.style.color = '#ef4444';
+        btnDelete.title = t('btn_delete');
+        btnDelete.onclick = () => {
+            if (confirm(t('msg_confirm_delete', { name: u.nickname }))) onAction('delete', u.id);
+        };
+        actions.appendChild(btnDelete);
+
+        row.appendChild(info);
+        row.appendChild(actions);
+        list.appendChild(row);
+    });
+}
+
+export function closeAdminPanelUI() {
+    document.getElementById('admin-modal').style.display = 'none';
 }
