@@ -43,3 +43,11 @@
     *   Use `Deno.env.get('MY_SECRET')` to access secrets.
     *   Do not rely on system prefixes like `SUPABASE_` if they are inconsistent; set explicit secrets (e.g., `JWT_SECRET`) via CLI.
     *   Always verify secrets presence at the start of the function execution.
+
+## 7. Tool Usage (Agent Internal)
+*   **Environment:** The development environment is **Windows**.
+    *   Shell: `PowerShell` or `git bash` (via `run_shell_command`).
+    *   Path separators: Be mindful of `\` vs `/`, though Node.js usually handles them.
+*   **Shell Commands:** Do NOT chain commands using `&&`, `|`, or `;` in `run_shell_command`. The parser rejects them. Always execute commands in separate, sequential tool calls.
+    *   *Bad:* `git add . && git commit -m "..."`
+    *   *Good:* Call `run_shell_command("git add .")` -> Call `run_shell_command("git commit ...")`
