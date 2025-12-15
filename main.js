@@ -59,22 +59,15 @@ async function handleLoginSuccess(user) {
             const newProfile = {
                 id: user.id,
                 email: user.email,
-                nickname: user.user_metadata.full_name,
-                avatar_url: defaultAvatar,
+                nickname: user.user_metadata.full_name || user.email.split('@')[0],
+                avatar_url: user.user_metadata.avatar_url || defaultAvatar,
                 is_approved: false
             };
-            const { error: insertError } = await db.createProfile(newProfile);
-            if (insertError) throw insertError;
-            
-            // Re-fetch
-            const { data: refetched } = await db.getProfile(user.id);
-            profile = refetched;
-        }
-
+// ...
         // Handle Profile State
         if (profile && profile.is_approved) {
             document.getElementById('stepInput').value = profile.total_steps;
-            currentAvatarUrl = profile.avatar_url || defaultAvatar;
+            currentAvatarUrl = profile.avatar_url || defaultAvatar; // Use profile avatar (which might be SSO avatar)
 
             if (profile.nickname) {
                 document.getElementById('my-name').innerText = profile.nickname;
@@ -83,6 +76,7 @@ async function handleLoginSuccess(user) {
             updateAvatarSelectionUI();
 
             if (isNewUser) {
+                // Ensure UI is ready before opening modal (slight delay might be needed or just direct call)
                 openProfileSettings(true);
             }
         } else {
@@ -262,6 +256,38 @@ function buildAvatarGrid() {
     const modalAvContainer = document.getElementById('modal-avatar-selection');
     modalAvContainer.innerHTML = ''; 
 
+    // 1. User's SSO Avatar (if available)
+    if (currentUser && currentUser.user_metadata && currentUser.user_metadata.avatar_url) {
+        const ssoUrl = currentUser.user_metadata.avatar_url;
+        
+        const title = document.createElement('div');
+        title.style.width = '100%';
+        title.style.fontSize = '0.9rem';
+        title.style.color = '#94a3b8';
+        title.style.marginTop = '10px';
+        title.style.marginBottom = '5px';
+        title.style.textAlign = 'left';
+        title.innerText = "Ваше фото";
+        modalAvContainer.appendChild(title);
+
+        const grid = document.createElement('div');
+        grid.style.display = 'flex';
+        grid.style.gap = '10px';
+        grid.style.flexWrap = 'wrap';
+        grid.style.justifyContent = 'flex-start';
+
+        const d = document.createElement('div');
+        d.className = 'avatar-opt';
+        d.style.backgroundImage = `url('${ssoUrl}')`;
+        d.onclick = () => { 
+            currentAvatarUrl = ssoUrl; 
+            updateAvatarSelectionUI(); 
+        };
+        grid.appendChild(d);
+        modalAvContainer.appendChild(grid);
+    }
+
+    // 2. Standard Groups
     avatarGroups.forEach(group => {
         const title = document.createElement('div');
         title.style.width = '100%';
