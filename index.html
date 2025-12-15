@@ -11,10 +11,17 @@
 <body>
 
   <div id="login-screen">
-    <h1 style="color: white; font-size: 2.5rem; margin-bottom: 30px;">🌍 EARTH RUN</h1>
+    <h1 style="color: white; font-size: 2.5rem; margin-bottom: 30px;" data-i18n="title_main">🌍 EARTH RUN</h1>
+    
+    <!-- Language Switch -->
+    <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px;">
+        <button class="icon-btn" onclick="changeLang('ru')" style="border: none;">🇷🇺</button>
+        <button class="icon-btn" onclick="changeLang('en')" style="border: none;">🇬🇧</button>
+    </div>
+
     <button class="login-btn" onclick="signIn()">
       <img src="https://cdn-icons-png.flaticon.com/512/2991/2991148.png" width="24">
-      Войти через Google
+      <span data-i18n="login_google">Войти через Google</span>
     </button>
     
     <div style="margin-top: 20px;">
@@ -28,54 +35,72 @@
   </div>
 
   <div id="ui-layer">
+    <!-- Language Switch (Inside app) -->
+    <div style="position: absolute; top: -40px; right: 0; display: flex; gap: 5px;">
+        <button class="icon-btn" onclick="changeLang('ru')" style="font-size: 1rem; padding: 2px;">🇷🇺</button>
+        <button class="icon-btn" onclick="changeLang('en')" style="font-size: 1rem; padding: 2px;">🇬🇧</button>
+    </div>
+
     <div class="user-card">
-      <div id="my-avatar-preview" class="user-avatar" onclick="openProfileSettings()" title="Настройки профиля"></div>
+      <div id="my-avatar-preview" class="user-avatar" onclick="openProfileSettings()" data-i18n-title="title_settings"></div>
       <div>
-        <div id="my-name" style="font-weight: bold;">Гость</div>
-        <div style="font-size: 0.8rem; color: #94a3b8; cursor: pointer;" onclick="signOut()">Выйти</div>
+        <div id="my-name" style="font-weight: bold;">Guest</div>
+        <div style="font-size: 0.8rem; color: #94a3b8; cursor: pointer;" onclick="signOut()" data-i18n="btn_cancel">Выйти</div>
       </div>
     </div>
 
     <div id="avatar-selection"></div>
 
     <div class="stats-box">
-      <div style="font-size: 0.8rem; color: #94a3b8;">Всего шагов:</div>
+      <div style="font-size: 0.8rem; color: #94a3b8;" data-i18n="total_steps_label">Всего шагов:</div>
       <div id="totalStepsDisplay" style="font-size: 1.5rem; font-weight: bold; color: white;">0</div>
     </div>
 
-    <label>Добавить шаги (+):</label>
+    <label data-i18n="add_steps_label">Добавить шаги (+):</label>
     <div style="display: flex; gap: 8px;">
-      <input type="number" id="addStepsInput" placeholder="Например: 5000">
+      <input type="number" id="addStepsInput" placeholder="Например: 5000" data-i18n="add_steps_placeholder" style="flex: 1; margin-bottom: 10px;">
       
-      <label class="action-btn" style="width: 40px; margin-bottom: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;" title="Загрузить скриншот">
+      <label class="action-btn" style="width: 45px; height: 42px; margin-bottom: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;" data-i18n-title="title_upload_screenshot">
         📷
         <input type="file" id="screenshotInput" accept="image/*" style="display: none;" onchange="uploadScreenshot(event)">
       </label>
 
-      <button class="action-btn" style="margin-bottom: 10px;" onclick="addSteps()">➕</button>
+      <button class="action-btn" style="width: 45px; height: 42px; margin-bottom: 10px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick="addSteps()" data-i18n="btn_add">➕</button>
     </div>
     
     <div class="stats-row">
-      <div>Ваш путь: <span id="kmDisplay" style="color: #38bdf8; font-weight: bold;">0</span> км</div>
-      <button class="icon-btn" onclick="recenterView()" title="Найти меня">🎯</button>
+      <div><span data-i18n="your_path_label">Ваш путь:</span> <span id="kmDisplay" style="color: #38bdf8; font-weight: bold;">0</span> <span data-i18n="km_unit">км</span></div>
+      <button class="icon-btn" onclick="recenterView()" data-i18n-title="title_center_me">🎯</button>
+      <button id="admin-btn" class="icon-btn" onclick="openAdminPanel()" style="display: none; border-color: #fbbf24; color: #fbbf24;" data-i18n-title="title_admin">👑</button>
     </div>
   </div>
 
   <!-- Profile Modal -->
   <div id="profile-modal" class="modal-overlay">
     <div class="modal-content">
-      <h2 id="modal-title">Настройка профиля</h2>
+      <h2 id="modal-title" data-i18n="modal_profile_title">Настройка профиля</h2>
       
-      <label>Отображаемое имя:</label>
-      <input type="text" id="modal-nickname" placeholder="Ваш никнейм">
+      <label data-i18n="label_nickname">Отображаемое имя:</label>
+      <input type="text" id="modal-nickname" placeholder="Ваш никнейм" data-i18n="placeholder_nickname">
       
-      <label>Выберите аватар:</label>
+      <label data-i18n="label_avatar">Выберите аватар:</label>
       <div id="modal-avatar-selection" class="avatar-grid"></div>
 
       <div class="modal-actions">
-        <button class="action-btn" onclick="saveProfileSettings()">Сохранить</button>
-        <button class="secondary-btn" id="modal-close-btn" onclick="closeProfileModal()">Отмена</button>
+        <button class="action-btn" onclick="saveProfileSettings()" data-i18n="btn_save">Сохранить</button>
+        <button class="secondary-btn" id="modal-close-btn" onclick="closeProfileModal()" data-i18n="btn_cancel">Отмена</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Admin Modal -->
+  <div id="admin-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 600px;">
+      <h2 data-i18n="modal_admin_title">Админ-панель</h2>
+      <div id="admin-user-list" style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
+        Loading...
+      </div>
+      <button class="secondary-btn" onclick="closeAdminPanel()" data-i18n="btn_close">Закрыть</button>
     </div>
   </div>
 

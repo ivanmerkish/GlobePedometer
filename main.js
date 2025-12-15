@@ -51,6 +51,7 @@ async function handleLoginSuccess(user) {
 
         const { data, error } = await db.getProfile(user.id);
         profile = data;
+        console.log("Loaded Profile:", profile); // DEBUG: Check role
 
         if (!profile) {
             isNewUser = true;
