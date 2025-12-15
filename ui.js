@@ -15,15 +15,22 @@ export function updateStats(km) {
     document.getElementById('kmDisplay').innerText = km;
 }
 
-export function setStepInput(totalSteps, isDisabled = false) {
-    const input = document.getElementById('stepInput');
-    input.value = totalSteps;
+export function updateTotalSteps(total) {
+    document.getElementById('totalStepsDisplay').innerText = total;
+}
+
+export function setInputState(isDisabled = false) {
+    const input = document.getElementById('addStepsInput');
+    const btn = document.querySelector('.action-btn');
+    
     input.disabled = isDisabled;
+    
     if (isDisabled) {
-        input.placeholder = "Доступ ограничен";
-        document.querySelector('.action-btn').style.display = 'none';
+        input.placeholder = "🔒 Нет доступа";
+        btn.style.display = 'none';
     } else {
-        document.querySelector('.action-btn').style.display = 'block';
+        input.placeholder = "Например: 5000";
+        btn.style.display = 'block';
     }
 }
 

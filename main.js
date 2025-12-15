@@ -3,9 +3,10 @@ import { auth, db } from './dbapi.js';
 import { initGlobe, updateGlobeData, centerGlobe } from './globe.js';
 import { calculateDistanceKm, calculateLongitude, generatePathPoints } from './utils.js';
 import { 
-    toggleLoginScreen, updateUserName, updateStats, setStepInput, showPendingMessage, 
+    toggleLoginScreen, updateUserName, updateStats, updateTotalSteps, setInputState, showPendingMessage, 
     buildAvatarGrid, updateAvatarSelectionUI, openProfileSettings, closeProfileModal 
 } from './ui.js';
+import { handleScreenshotUpload } from './ocr.js';
 
 let currentUser = null;
 let currentAvatarUrl = defaultAvatar;
@@ -15,10 +16,8 @@ let lastDataString = "";
 // --- INITIALIZATION ---
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Initialize Globe
     initGlobe(document.getElementById('globeViz'));
 
-    // 2. Setup Auth Listener
     auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_IN' && session) {
             handleLoginSuccess(session.user);
@@ -27,7 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 3. Check existing session
     checkInitialSession();
 });
 
@@ -42,18 +40,15 @@ async function handleLoginSuccess(user) {
     try {
         currentUser = user;
         
-        // UI Updates
         toggleLoginScreen(false);
         updateUserName(user.user_metadata.full_name || user.email);
 
         let isNewUser = false;
         let profile = null;
 
-        // Fetch Profile
         const { data, error } = await db.getProfile(user.id);
         profile = data;
 
-        // Create Profile if not exists
         if (!profile) {
             isNewUser = true;
             const newProfile = {
@@ -66,25 +61,21 @@ async function handleLoginSuccess(user) {
             const { error: insertError } = await db.createProfile(newProfile);
             if (insertError) throw insertError;
             
-            // Re-fetch
             const { data: refetched } = await db.getProfile(user.id);
             profile = refetched;
         }
 
-        // Rebuild Avatar Grid with User Context
-        // Define callback to handle selection
         const onAvatarSelect = (url) => {
             currentAvatarUrl = url;
             updateAvatarSelectionUI(currentAvatarUrl);
         };
         buildAvatarGrid(currentUser, currentAvatarUrl, onAvatarSelect);
 
-        // Handle Profile State
         if (profile && profile.is_approved) {
-            setStepInput(profile.total_steps, false);
+            updateTotalSteps(profile.total_steps || 0);
+            setInputState(false);
             
             currentAvatarUrl = profile.avatar_url || defaultAvatar; 
-            // Also need to refresh UI selection based on loaded profile
             updateAvatarSelectionUI(currentAvatarUrl);
 
             if (profile.nickname) {
@@ -95,11 +86,11 @@ async function handleLoginSuccess(user) {
                 openProfileSettings(currentUser, true);
             }
         } else {
-            setStepInput(0, true);
+            updateTotalSteps(0);
+            setInputState(true);
             showPendingMessage();
         }
 
-        // Refresh data immediately
         fetchAndDrawEveryone(true);
         if (dataLoopInterval) clearInterval(dataLoopInterval);
         dataLoopInterval = setInterval(() => fetchAndDrawEveryone(false), 30000);
@@ -153,6 +144,7 @@ async function fetchAndDrawEveryone(centerView = false) {
 
         if (currentUser && p.id === currentUser.id) {
             updateStats(distanceKm);
+            updateTotalSteps(p.total_steps); // Keep UI synced
             userCurrentLng = currentLng;
             ringsData.push({ lat: START_LAT, lng: currentLng });
         }
@@ -177,15 +169,12 @@ window.signIn = async function() {
 
 window.onTelegramAuth = async function(user) {
     try {
-        console.log("Telegram auth received:", user);
         const result = await auth.verifyTelegramLogin(user);
-        
         if (result.session) {
             await auth.setSession(result.session);
         } else {
             throw new Error("No session returned from server");
         }
-        
     } catch (err) {
         alert("Telegram Error: " + err.message);
     }
@@ -196,23 +185,31 @@ window.signOut = async function() {
     window.location.reload();
 };
 
-window.saveData = async function(silent = false) {
+window.addSteps = async function() {
     if (!currentUser) return;
-    const steps = parseInt(document.getElementById('stepInput').value) || 0;
-    const currentName = document.getElementById('my-name').innerText;
+    const input = document.getElementById('addStepsInput');
+    const amount = parseInt(input.value);
 
-    const updates = {
-        id: currentUser.id,
-        email: currentUser.email,
-        nickname: currentName,
-        avatar_url: currentAvatarUrl,
-        total_steps: steps,
-        updated_at: new Date()
-    };
+    if (!amount || amount <= 0) {
+        alert("Введите положительное число шагов!");
+        return;
+    }
 
-    const { error } = await db.upsertProfile(updates);
-    if (error && !silent) alert('Ошибка! ' + error.message);
-    if (!silent) fetchAndDrawEveryone();
+    const { error } = await db.incrementSteps(amount);
+    
+    if (error) {
+        alert('Ошибка! ' + error.message);
+    } else {
+        input.value = ''; 
+        fetchAndDrawEveryone(); 
+    }
+};
+
+window.uploadScreenshot = async function(event) {
+    const steps = await handleScreenshotUpload(event, currentUser);
+    if (steps) {
+        fetchAndDrawEveryone();
+    }
 };
 
 window.saveProfileSettings = async function() {
@@ -243,6 +240,6 @@ window.recenterView = function() {
     }
 };
 
-// Expose UI helpers needed for HTML onClick events
+// UI helpers
 window.openProfileSettings = () => openProfileSettings(currentUser, false);
 window.closeProfileModal = closeProfileModal;

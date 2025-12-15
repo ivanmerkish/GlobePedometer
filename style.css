@@ -76,6 +76,15 @@ button.action-btn:hover { opacity: 0.9; }
 }
 .icon-btn:hover { background: rgba(56, 189, 248, 0.2); border-color: #38bdf8; }
 
+.stats-box {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+  margin-bottom: 15px;
+}
+
 .stats-row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; font-size: 0.9rem; color: #ccc; }
 
 #avatar-selection { display: flex; gap: 8px; margin-bottom: 15px; justify-content: center; flex-wrap: wrap;}

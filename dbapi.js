@@ -79,8 +79,55 @@ export const db = {
         return await supabaseClient.from('profiles').upsert(profileData);
     },
 
+    // Increment steps safely via RPC
+    incrementSteps: async (amount) => {
+        return await supabaseClient.rpc('increment_steps', { x: amount });
+    },
+
     // Get all profiles for the leaderboard/globe
     getAllProfiles: async () => {
         return await supabaseClient.from('profiles').select('*');
+    }
+};
+
+export const storage = {
+    // Upload image to 'screenshots' bucket
+    uploadScreenshot: async (file, userId) => {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${userId}/${Date.now()}.${fileExt}`;
+        
+        const { data, error } = await supabaseClient.storage
+            .from('screenshots')
+            .upload(fileName, file, {
+                cacheControl: '3600',
+                upsert: false
+            });
+            
+        if (error) throw error;
+        return data.path; // Returns path inside bucket
+    }
+};
+
+export const functions = {
+    // Generic invocation
+    invoke: async (functionName, body) => {
+        const { SUPABASE_PROJECT_REF, SUPABASE_ANON_KEY } = await import('./config.js');
+        const url = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/${functionName}`;
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            const err = await response.json();
+            throw new Error(err.error || `Function ${functionName} failed`);
+        }
+
+        return await response.json();
     }
 };

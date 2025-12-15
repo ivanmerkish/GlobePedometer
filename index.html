@@ -36,11 +36,24 @@
       </div>
     </div>
 
-    <!-- Old avatar selection removed from here -->
+    <div id="avatar-selection"></div>
 
-    <label>Общий пробег (шаги):</label>
-    <input type="number" id="stepInput" placeholder="0">
-    <button class="action-btn" onclick="saveData()">💾 Сохранить</button>
+    <div class="stats-box">
+      <div style="font-size: 0.8rem; color: #94a3b8;">Всего шагов:</div>
+      <div id="totalStepsDisplay" style="font-size: 1.5rem; font-weight: bold; color: white;">0</div>
+    </div>
+
+    <label>Добавить шаги (+):</label>
+    <div style="display: flex; gap: 8px;">
+      <input type="number" id="addStepsInput" placeholder="Например: 5000">
+      
+      <label class="action-btn" style="width: 40px; margin-bottom: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;" title="Загрузить скриншот">
+        📷
+        <input type="file" id="screenshotInput" accept="image/*" style="display: none;" onchange="uploadScreenshot(event)">
+      </label>
+
+      <button class="action-btn" style="margin-bottom: 10px;" onclick="addSteps()">➕</button>
+    </div>
     
     <div class="stats-row">
       <div>Ваш путь: <span id="kmDisplay" style="color: #38bdf8; font-weight: bold;">0</span> км</div>
