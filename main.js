@@ -107,7 +107,18 @@ async function handleLoginSuccess(user) {
 
     } catch (err) {
         console.error("Login Handling Error:", err);
-        alert("Ошибка входа: " + err.message);
+        
+        // Handle "Orphaned Session" (User deleted from DB but token remains)
+        // Postgres error code 23503 is Foreign Key Violation
+        if (err.code === '23503' || err.message?.includes('foreign key constraint')) {
+            console.warn("Session invalid (User not found in Auth). Signing out...");
+            await auth.signOut();
+            window.location.reload();
+            return;
+        }
+
+        // Generic error for user, details in console
+        alert("Ошибка входа: Не удалось загрузить профиль. Попробуйте войти снова.");
         document.getElementById('login-screen').style.display = 'flex';
     }
 }
