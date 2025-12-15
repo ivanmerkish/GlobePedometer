@@ -1,7 +1,11 @@
-import { avatarGroups, defaultAvatar, START_LAT, START_LNG } from './config.js';
+import { defaultAvatar, START_LAT, START_LNG } from './config.js';
 import { auth, db } from './dbapi.js';
 import { initGlobe, updateGlobeData, centerGlobe } from './globe.js';
 import { calculateDistanceKm, calculateLongitude, generatePathPoints } from './utils.js';
+import { 
+    toggleLoginScreen, updateUserName, updateStats, setStepInput, showPendingMessage, 
+    buildAvatarGrid, updateAvatarSelectionUI, openProfileSettings, closeProfileModal 
+} from './ui.js';
 
 let currentUser = null;
 let currentAvatarUrl = defaultAvatar;
@@ -25,9 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Check existing session
     checkInitialSession();
-
-    // 4. Build UI
-    buildAvatarGrid();
 });
 
 async function checkInitialSession() {
@@ -42,9 +43,8 @@ async function handleLoginSuccess(user) {
         currentUser = user;
         
         // UI Updates
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('ui-layer').style.display = 'block';
-        document.getElementById('my-name').innerText = user.user_metadata.full_name || user.email;
+        toggleLoginScreen(false);
+        updateUserName(user.user_metadata.full_name || user.email);
 
         let isNewUser = false;
         let profile = null;
@@ -63,35 +63,40 @@ async function handleLoginSuccess(user) {
                 avatar_url: user.user_metadata.avatar_url || defaultAvatar,
                 is_approved: false
             };
-// ...
+            const { error: insertError } = await db.createProfile(newProfile);
+            if (insertError) throw insertError;
+            
+            // Re-fetch
+            const { data: refetched } = await db.getProfile(user.id);
+            profile = refetched;
+        }
+
+        // Rebuild Avatar Grid with User Context
+        // Define callback to handle selection
+        const onAvatarSelect = (url) => {
+            currentAvatarUrl = url;
+            updateAvatarSelectionUI(currentAvatarUrl);
+        };
+        buildAvatarGrid(currentUser, currentAvatarUrl, onAvatarSelect);
+
         // Handle Profile State
         if (profile && profile.is_approved) {
-            document.getElementById('stepInput').value = profile.total_steps;
-            currentAvatarUrl = profile.avatar_url || defaultAvatar; // Use profile avatar (which might be SSO avatar)
+            setStepInput(profile.total_steps, false);
+            
+            currentAvatarUrl = profile.avatar_url || defaultAvatar; 
+            // Also need to refresh UI selection based on loaded profile
+            updateAvatarSelectionUI(currentAvatarUrl);
 
             if (profile.nickname) {
-                document.getElementById('my-name').innerText = profile.nickname;
+                updateUserName(profile.nickname);
             }
-
-            updateAvatarSelectionUI();
 
             if (isNewUser) {
-                // Ensure UI is ready before opening modal (slight delay might be needed or just direct call)
-                openProfileSettings(true);
+                openProfileSettings(currentUser, true);
             }
         } else {
-            // Pending Approval
-            document.getElementById('stepInput').disabled = true;
-            document.getElementById('stepInput').placeholder = "Доступ ограничен";
-            document.querySelector('.action-btn').style.display = 'none';
-
-            const existingMsg = document.querySelector('.pending-msg');
-            if (!existingMsg) {
-                const msg = document.createElement('div');
-                msg.className = 'pending-msg';
-                msg.innerText = '🔒 Ваш аккаунт на проверке. Напишите админу.';
-                document.getElementById('ui-layer').appendChild(msg);
-            }
+            setStepInput(0, true);
+            showPendingMessage();
         }
 
         // Refresh data immediately
@@ -102,18 +107,15 @@ async function handleLoginSuccess(user) {
     } catch (err) {
         console.error("Login Handling Error:", err);
         
-        // Handle "Orphaned Session" (User deleted from DB but token remains)
-        // Postgres error code 23503 is Foreign Key Violation
         if (err.code === '23503' || err.message?.includes('foreign key constraint')) {
-            console.warn("Session invalid (User not found in Auth). Signing out...");
+            console.warn("Session invalid. Signing out...");
             await auth.signOut();
             window.location.reload();
             return;
         }
 
-        // Generic error for user, details in console
         alert("Ошибка входа: Не удалось загрузить профиль. Попробуйте войти снова.");
-        document.getElementById('login-screen').style.display = 'flex';
+        toggleLoginScreen(true);
     }
 }
 
@@ -121,12 +123,8 @@ async function fetchAndDrawEveryone(centerView = false) {
     const { data: profiles, error } = await db.getAllProfiles();
     if (error) return console.error(error);
 
-    // Simple deduplication
     const currentDataString = JSON.stringify(profiles.map(p => ({ s: p.total_steps, a: p.avatar_url, n: p.nickname })));
-    
-    if (currentDataString === lastDataString && !centerView) {
-        return;
-    }
+    if (currentDataString === lastDataString && !centerView) return;
     lastDataString = currentDataString;
 
     const markersData = [];
@@ -138,7 +136,6 @@ async function fetchAndDrawEveryone(centerView = false) {
         const distanceKm = calculateDistanceKm(p.total_steps);
         const currentLng = calculateLongitude(p.total_steps);
 
-        // Marker
         markersData.push({
             id: p.id, 
             lat: START_LAT, 
@@ -149,15 +146,13 @@ async function fetchAndDrawEveryone(centerView = false) {
             isCurrentUser: (currentUser && p.id === currentUser.id)
         });
 
-        // Path (Only if moved)
         if (p.total_steps > 0) {
             const pathPoints = generatePathPoints(currentLng);
             pathsData.push({ points: pathPoints });
         }
 
-        // Current User Updates
         if (currentUser && p.id === currentUser.id) {
-            document.getElementById('kmDisplay').innerText = distanceKm;
+            updateStats(distanceKm);
             userCurrentLng = currentLng;
             ringsData.push({ lat: START_LAT, lng: currentLng });
         }
@@ -173,7 +168,6 @@ async function fetchAndDrawEveryone(centerView = false) {
 // --- GLOBAL ACTIONS ---
 
 window.signIn = async function() {
-    console.log("Initiating sign in...");
     try {
         await auth.signInWithGoogle();
     } catch (err) {
@@ -188,7 +182,6 @@ window.onTelegramAuth = async function(user) {
         
         if (result.session) {
             await auth.setSession(result.session);
-            // The onAuthStateChange listener will pick this up and call handleLoginSuccess
         } else {
             throw new Error("No session returned from server");
         }
@@ -226,7 +219,7 @@ window.saveProfileSettings = async function() {
     const newName = document.getElementById('modal-nickname').value;
     if (!newName) return alert("Введите имя!");
 
-    document.getElementById('my-name').innerText = newName;
+    updateUserName(newName);
 
     if (currentUser) {
         const updates = {
@@ -250,101 +243,6 @@ window.recenterView = function() {
     }
 };
 
-// --- UI HELPERS ---
-
-function buildAvatarGrid() {
-    const modalAvContainer = document.getElementById('modal-avatar-selection');
-    modalAvContainer.innerHTML = ''; 
-
-    // 1. User's SSO Avatar (if available)
-    if (currentUser && currentUser.user_metadata && currentUser.user_metadata.avatar_url) {
-        const ssoUrl = currentUser.user_metadata.avatar_url;
-        
-        const title = document.createElement('div');
-        title.style.width = '100%';
-        title.style.fontSize = '0.9rem';
-        title.style.color = '#94a3b8';
-        title.style.marginTop = '10px';
-        title.style.marginBottom = '5px';
-        title.style.textAlign = 'left';
-        title.innerText = "Ваше фото";
-        modalAvContainer.appendChild(title);
-
-        const grid = document.createElement('div');
-        grid.style.display = 'flex';
-        grid.style.gap = '10px';
-        grid.style.flexWrap = 'wrap';
-        grid.style.justifyContent = 'flex-start';
-
-        const d = document.createElement('div');
-        d.className = 'avatar-opt';
-        d.style.backgroundImage = `url('${ssoUrl}')`;
-        d.onclick = () => { 
-            currentAvatarUrl = ssoUrl; 
-            updateAvatarSelectionUI(); 
-        };
-        grid.appendChild(d);
-        modalAvContainer.appendChild(grid);
-    }
-
-    // 2. Standard Groups
-    avatarGroups.forEach(group => {
-        const title = document.createElement('div');
-        title.style.width = '100%';
-        title.style.fontSize = '0.9rem';
-        title.style.color = '#94a3b8';
-        title.style.marginTop = '10px';
-        title.style.marginBottom = '5px';
-        title.style.textAlign = 'left';
-        title.innerText = group.name;
-        modalAvContainer.appendChild(title);
-        
-        const grid = document.createElement('div');
-        grid.style.display = 'flex';
-        grid.style.gap = '10px';
-        grid.style.flexWrap = 'wrap';
-        grid.style.justifyContent = 'flex-start';
-        
-        group.icons.forEach(url => {
-           const d = document.createElement('div');
-           d.className = 'avatar-opt';
-           d.style.backgroundImage = `url('${url}')`;
-           d.onclick = () => { 
-               currentAvatarUrl = url; 
-               updateAvatarSelectionUI(); 
-           };
-           grid.appendChild(d);
-        });
-        modalAvContainer.appendChild(grid);
-    });
-}
-
-function updateAvatarSelectionUI() {
-    document.querySelectorAll('.avatar-opt').forEach(el => {
-       el.classList.toggle('selected', el.style.backgroundImage.includes(currentAvatarUrl));
-    });
-    const preview = document.getElementById('my-avatar-preview');
-    if(preview) preview.style.backgroundImage = `url('${currentAvatarUrl}')`;
-}
-
-window.openProfileSettings = function(isFirstTime = false) {
-    const modal = document.getElementById('profile-modal');
-    modal.style.display = 'flex';
-    
-    if (currentUser) {
-        document.getElementById('modal-nickname').value = document.getElementById('my-name').innerText;
-    }
-
-    const closeBtn = document.getElementById('modal-close-btn');
-    if (isFirstTime) {
-        document.getElementById('modal-title').innerText = "👋 Добро пожаловать!";
-        closeBtn.style.display = 'none'; 
-    } else {
-        document.getElementById('modal-title').innerText = "Настройка профиля";
-        closeBtn.style.display = 'block';
-    }
-};
-
-window.closeProfileModal = function() {
-    document.getElementById('profile-modal').style.display = 'none';
-};
+// Expose UI helpers needed for HTML onClick events
+window.openProfileSettings = () => openProfileSettings(currentUser, false);
+window.closeProfileModal = closeProfileModal;
